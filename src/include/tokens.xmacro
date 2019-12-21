@@ -1,0 +1,7 @@
+xmacro(inner_border)
+xmacro(inner_border_color)
+xmacro(outer_border)
+xmacro(outer_border_color)
+xmacro(border)
+xmacro(keys)
+xmacro(buttons)
