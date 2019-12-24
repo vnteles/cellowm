@@ -11,18 +11,31 @@ struct list {
     char * gdata;
 };
 
-struct window {
-    xcb_drawable_t id;
-    uint8_t depth;
-
+struct geometry {
     int16_t x, y;
     uint16_t w, h;
 
-    xcb_drawable_t deco;
+    uint8_t depth;
+};
+
+struct window {
+    xcb_drawable_t id;
+
+    /*window geometry*/
+    struct geometry geom;
+    /*original window geometry, so we can go back from maximized windows with no problems*/
+    struct geometry orig;
+
+    /*todo: implement frame on windows*/
+    xcb_drawable_t frame;
     uint32_t deco_mask;
+
+    /* store the state of the current window*/
+    uint32_t state_mask;
 
     /*window desktop*/
     uint8_t d;
+
     /*desktop list*/
     struct list * dlist;
 
@@ -31,7 +44,9 @@ struct window {
 };
 
 union param {
+    /*command*/
     const char ** com;
+    /*config constant*/
     const uint32_t i;
 };
 
@@ -63,6 +78,8 @@ struct config {
 
     struct key * keys;
     struct button * buttons;
+
+    uint32_t monocle_gap;
 
     uint8_t config_ok;
 };

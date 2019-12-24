@@ -10,6 +10,17 @@
 #include <string.h>
 #include <unistd.h>
 
+#define _inner_border 0
+#define _inner_border_color 1
+#define _outer_border 2
+#define _outer_border_color 3
+#define _border 4
+#define _keys 5
+#define _buttons 6
+#define _monocle_gap 7
+
+#define uknw -1
+
 struct token {
     char * val;
     int16_t code;
@@ -71,6 +82,14 @@ static bool set_border(struct token * tok){
     return false;
 }
 
+static bool set_monocle_gap(struct token * tok) {
+    if (tok->tok_type == JSMN_PRIMITIVE && isnum(tok->val)){
+        conf.monocle_gap = atoi(tok->val);
+        return true;
+    }
+    return false;
+}
+
 /* todo: implement */
 static bool set_keys(struct token * tok __attribute((unused))){
     return false;
@@ -103,6 +122,8 @@ struct token getToken(jsmntok_t t[], char * jss, uint32_t i) {
         tok.code = _outer_border_color;
     } else if (comp("border")) {
         tok.code = _border;
+    } else if (comp("monocle_gap")) {
+        tok.code = _monocle_gap;
     } else {
         // free(tok.val);
         tok.val = copy(i);

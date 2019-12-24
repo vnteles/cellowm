@@ -12,9 +12,14 @@
 
 #define MAX_DESKTOPS 10
 
-#define DECO_NONE (1<<0)
-#define DECO_BORDER (1<<1)
-#define DECO_NO_BORDER (1<<2)
+/*todo: implement titlebar*/
+#define DECO_NONE       (1<<0)
+#define DECO_BORDER     (1<<1)
+#define DECO_NO_BORDER  (1<<2)
+
+/*maxmized*/
+#define CELLO_STATE_MAXIMIZE (1<<0)
+#define CELLO_STATE_MONOCLE  (1<<1)
 
 /*global connection*/
 extern xcb_connection_t * conn;
@@ -24,7 +29,6 @@ extern xcb_screen_t * root_screen;
 extern struct config conf;
 
 xcb_atom_t WM_DELETE_WINDOW;
-
 
 xcb_screen_t * get_screen(xcb_connection_t con, int scr);
 
@@ -39,14 +43,15 @@ void cello_decorate_window(struct window * w);
 
 void cello_unmap_win_from_desktop(struct window * w);
 void cello_unmap_window(struct window * w);
-void cello_destroy_window(xcb_window_t win);
-
-void cello_move_window(xcb_window_t w, int16_t x, int16_t y);
+void cello_destroy_window(struct window * w);
 
 void cello_center_window(struct window * w);
 void cello_center_window_x(struct window * w);
 void cello_center_window_y(struct window * w);
 
+void cello_maximize_window(struct window * w);
+void cello_monocle_window(struct window * w);
+void cello_unmaximize_window(struct window * w);
 void cello_goto_desktop(uint32_t d);
 
 void cello_update_wilist_with(xcb_drawable_t wid);
