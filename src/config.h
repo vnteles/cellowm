@@ -21,7 +21,7 @@
 /* user changes here */
 #define MOD XCB_MOD_MASK_4
 
-command(terminal, "urxvt");
+command(terminal, "alacritty");
 command(fixed_menu, "rofi", "-show", "drun");
 command(reload_polybar, "/home/vtn/.config/polybar/launch.sh");
 command(print, "scrot");
@@ -68,6 +68,8 @@ static struct key keys[] = {
     {XK_Print,             NONE,          RUN,             NONE,             {.com = print}        },
 
     {XK_b,                 MOD,           TOGGLE_BORDER,   NO_ROOT,          {}                    },
+    {XK_f,                 MOD,           TOGGLE_MAXIMIZE, NO_ROOT,          {}                    },
+    {XK_m,                 MOD,           TOGGLE_MONOCLE,  NO_ROOT,          {}                    },
 
     CHANGEDESKTOP(1, 0),
     CHANGEDESKTOP(2, 1),

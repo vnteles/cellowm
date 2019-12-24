@@ -32,20 +32,21 @@ static void HANDLE_XCB_KEY_PRESS() {
     }
 }
 
+#define NO_MOVEABLE (!f || (f && (f->state_mask & CELLO_STATE_MONOCLE || f->state_mask & CELLO_STATE_MAXIMIZE) ))
+
 static void HANDLE_XCB_BUTTON_PRESS() {
     xcb_button_press_event_t * e = (xcb_button_press_event_t *) event;
  
     for each_button
         if (buttons[i].function && buttons[i].button == e->detail)
             if (buttons[i].mod_mask == e->state){
-
-                if (buttons[i].function == MOUSE_MOTION && !xcb_get_focused_window()) break;
+                struct window * f = xcb_get_focused_window();
+                if (buttons[i].function == MOUSE_MOTION && NO_MOVEABLE) continue;
 
                 if (buttons[i].win_mask & ROOT_ONLY){
                     if (e->event == e->root && !e->child) 
                         goto action;
-                    else
-                        continue;
+                    continue;
                 }
 
                 action:
@@ -99,7 +100,7 @@ static void HANDLE_XCB_CONFIGURE_REQUEST() {
     #undef CLONE_MASK
 
 
-    NLOG("Window 0x%08x configured with %dx%d at [%d, %d]\n", e->window, e->width, e->height, e->x, e->y);
+    NLOG("{@} Window 0x%08x configured with geometry %dx%d at [%d, %d]\n", e->window, e->width, e->height, e->x, e->y);
 
     xcb_configure_window(conn, e->window, mask, values);
     xcb_flush(conn);
@@ -109,7 +110,7 @@ static void HANDLE_XCB_DESTROY_NOTIFY() {
 
     struct window * w;
     if ((w = cello_find_window(e->window))){
-        cello_destroy_window(w->id);
+        cello_destroy_window(w);
     }
 }
 
@@ -122,13 +123,12 @@ static void HANDLE_XCB_MAP_REQUEST() {
 
     // configure window
     if (!( win = cello_configure_new_window(e->window) )) return;
-    cello_add_window_to_current_desktop(win);
-
-    cello_update_wilist();
 
     win->d = cello_get_current_desktop();
-
     xcb_map_window(conn, win->id);
+
+    cello_add_window_to_desktop(win, win->d);
+    cello_update_wilist_with(win->id);
 
     xcb_flush(conn);
 }
@@ -151,7 +151,7 @@ void (*events[])() = {
     #undef xmacro
 };
 
-static void handle(xcb_generic_event_t * e) {
+void handle(xcb_generic_event_t * e) {
     const uint8_t event_len = sizeof(events) / sizeof(*events);
     if (e->response_type < event_len && events[e->response_type]) 
         events[e->response_type]();
@@ -174,8 +174,7 @@ void CLOSE_WINDOW(const union param * param) {
     if (!focused || focused->id == root_screen->root) return;
 
     if (param->i & KILL){
-        xcb_kill_client(conn, focused->id);
-        return;
+        goto kill;
     }
 
     xcb_get_property_cookie_t cprop;
@@ -205,8 +204,7 @@ void CLOSE_WINDOW(const union param * param) {
                             XCB_CURRENT_TIME
                         }
                     }
-                );
-                
+                );                
                 nokill = true;
                 break;
             }
@@ -215,9 +213,11 @@ void CLOSE_WINDOW(const union param * param) {
         xcb_icccm_get_wm_protocols_reply_wipe(&rprop);
     }
 
-    if (!nokill)
+    if (!nokill) {
         // could not use wm delete
+        kill:
         xcb_kill_client(conn, focused->id);
+    }
 }
 
 void CENTER_WINDOW(const union param * param) {
@@ -240,6 +240,7 @@ void RELOAD_CONFIG(const union param * param __attribute((unused))) {
 void TOGGLE_BORDER(const union param * param __attribute((unused))) {
     struct window * focused;
     focused = xcb_get_focused_window();
+    if (!focused) return;
 
     if (focused->deco_mask & DECO_BORDER) {
         __SWITCH_MASK__(focused->deco_mask, DECO_BORDER, DECO_NO_BORDER);
@@ -250,13 +251,33 @@ void TOGGLE_BORDER(const union param * param __attribute((unused))) {
     cello_decorate_window(focused);
 }
 
+void TOGGLE_MAXIMIZE(const union param * param __attribute((unused))) {
+    struct window * focused;
+    focused = xcb_get_focused_window();
+    if (!focused) return;
+    /*already maximized*/
+    if (focused->state_mask & CELLO_STATE_MAXIMIZE) cello_unmaximize_window(focused);
+    else cello_maximize_window(focused);
+}
+
+void TOGGLE_MONOCLE(const union param * param __attribute__((unused))) {
+    struct window * focused;
+    focused = xcb_get_focused_window();
+    if (!focused) return;
+    /*already maximized*/
+    if (focused->state_mask & CELLO_STATE_MONOCLE) cello_unmaximize_window(focused);
+    else cello_monocle_window(focused);
+}
+
 void CHANGE_DESKTOP(const union param * param) {
     cello_goto_desktop(param->i);
 }
 
 void MOVE_WINDOW_TO_DESKTOP(const union param * param) {
     struct window * f = xcb_get_focused_window();
+    if (!f) return;
     if (param->i == f->d) return;
+    
     cello_unmap_win_from_desktop(f);
     cello_add_window_to_desktop(f, param->i);
     xcb_unfocus();
@@ -308,10 +329,10 @@ void MOUSE_MOTION(const union param * param){
         return;
     }
 
-    wx = focused->x;
-    wy = focused->y;
-    ww = focused->w;
-    wh = focused->h;
+    wx = focused->geom.x;
+    wy = focused->geom.y;
+    ww = focused->geom.w;
+    wh = focused->geom.h;
 
 
     use_xcursor = check_xcursor_support();
@@ -404,14 +425,14 @@ void MOUSE_MOTION(const union param * param){
                     int16_t nx  = 0;
 
                     nw = DIMENSION(ww,-mevent->root_x,-px);
-                    nx = focused->x + (-nw+focused->w);
+                    nx = focused->geom.x + (-nw+focused->geom.w);
 
-                    xcb_move_focused_window(nx, focused->y);
+                    xcb_move_focused_window(nx, focused->geom.y);
                 }
 
                 #undef DIMENSION
-                if (nw < 0) nw = focused->w;
-                if (nh < 0) nh = focused->h;
+                if (nw < 0) nw = focused->geom.w;
+                if (nh < 0) nh = focused->geom.h;
 
                 xcb_resize_focused_window((uint16_t)nw, (uint16_t)nh);
             }

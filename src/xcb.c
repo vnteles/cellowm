@@ -30,10 +30,10 @@ void xcb_grab_buttons(xcb_window_t win) {
     int i;
     for (i = 0; i < len; i++) {
         xcb_grab_button(
-            conn, false, win, 
-            XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, 
+            conn, false, win,
+            XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC,
             XCB_GRAB_MODE_ASYNC, root_screen->root,
-            XCB_NONE, buttons[i].button, 
+            XCB_NONE, buttons[i].button,
             buttons[i].mod_mask
         );
     }
@@ -44,7 +44,6 @@ void xcb_unfocus() {
     if (!focused || focused->id == root_screen->root)
         return;
 
-//    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_NONE, XCB_CURRENT_TIME);
     focused = NULL;
 }
 
@@ -53,7 +52,7 @@ void xcb_focus_on_pointer() {
 
     xcb_change_property(
         conn, XCB_PROP_MODE_REPLACE, root_screen->root,
-        ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, 
+        ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW,
         32, 1, &(xcb_window_t){0}
     );
 
@@ -65,11 +64,9 @@ void xcb_focus_on_pointer() {
 
 void xcb_focus_window(struct window * w) {
     /*if for some reason win be null*/
-    if (!w)                                 xcb_focus_on_pointer();
+    if (!w) xcb_focus_on_pointer();
     else if (w->id == root_screen->root)    return;
     else {
-        // if (focused) xcb_unfocus();
-
         xcb_change_property(
             conn, XCB_PROP_MODE_REPLACE, w->id,
             ewmh->_NET_WM_STATE, ewmh->_NET_WM_STATE,
@@ -85,7 +82,6 @@ void xcb_focus_window(struct window * w) {
         );
 
         xcb_grab_buttons(w->id);
-
         focused = w;
         xcb_flush(conn);
     }
@@ -107,10 +103,15 @@ void xcb_raise_focused_window() {
 
 void xcb_move_window(struct window * w, int16_t x, int16_t y){
     if (w->id == root_screen->root || !w) return;
-    if (w->d != cello_get_current_desktop()) return;
+    /*don't move maximized windows*/
+    if (w->state_mask & CELLO_STATE_MAXIMIZE || w->state_mask & CELLO_STATE_MONOCLE)
+        return;
+
+    w->geom.x = x;
+    w->geom.y = y;
 
     xcb_configure_window(
-        conn, w->id, 
+        conn, w->id,
         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
         (uint32_t[]){ x, y }
     );
@@ -121,16 +122,16 @@ void xcb_move_window(struct window * w, int16_t x, int16_t y){
 void xcb_move_focused_window(int16_t x, int16_t y) {
     if (!focused) return;
 
-    focused->x = x;
-    focused->y = y;
 
-    cello_move_window(focused->id, x, y);
+    xcb_move_window(focused, x, y);
 }
 
 /*required verify the window proportions before calling this*/
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     if (w->id == root_screen->root || !w) return;
-    if (w->d != cello_get_current_desktop()) return;
+    
+    if (w->state_mask & CELLO_STATE_MAXIMIZE || w->state_mask & CELLO_STATE_MONOCLE)
+        return;
 
     uint16_t mask = 0;
     uint32_t values[2] = {XCB_NONE, XCB_NONE};
@@ -146,7 +147,9 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     }
 
 
+    // xcb_configure_window(conn, w->frame, mask,values);
     xcb_configure_window(conn, w->id, mask,values);
+
     cello_decorate_window(w);
     xcb_flush(conn);
 }
@@ -154,8 +157,8 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
 void xcb_resize_focused_window(uint16_t width, uint16_t height) {
     if (!focused) return;
 
-    focused->w = width;
-    focused->h = height;
+    focused->geom.w = width;
+    focused->geom.h = height;
 
     xcb_resize_window(focused, width, height);
 }
@@ -164,7 +167,7 @@ xcb_keycode_t * xcb_get_keycode_from_keysym(xcb_keysym_t keysym) {
     xcb_key_symbols_t * keysyms;
     if (!(keysyms = xcb_key_symbols_alloc(conn)))
         return NULL;
-    
+
     xcb_keycode_t * keycode = xcb_key_symbols_get_keycode(keysyms, keysym);
 
     xcb_key_symbols_free(keysyms);
@@ -175,7 +178,7 @@ xcb_keysym_t xcb_get_keysym_from_keycode(xcb_keycode_t keycode) {
     xcb_key_symbols_t * keysyms;
     if (!(keysyms = xcb_key_symbols_alloc(conn)))
         return 0;
-    
+
     xcb_keysym_t keysym = xcb_key_symbols_get_keysym(keysyms, keycode, 0);
 
     xcb_key_symbols_free(keysyms);
