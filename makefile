@@ -20,17 +20,17 @@ all: obj_folder $(PROJ_NAME)
 
 $(PROJ_NAME): $(OBJ)
 	@ echo 'Building binary using GCC linker: $@'
-	$(CC) -o $@ $^ $(CFLAGS) $(LDADD)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo -e 'Build finished\n'
 
 ./obj/main.o: ./src/main.c $(H_SRC)
 	@ echo 'Building target using GCC compiler: $<'
-	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD)
+	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo ' '
 
 ./obj/%.o: ./src/%.c $(INCLUDE_PATH)/%.h
 	@ echo 'Building target using GCC compiler: $<'
-	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD)
+	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo ' '
 
 obj_folder:
