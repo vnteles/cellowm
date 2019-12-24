@@ -23,13 +23,33 @@ struct list * new_empty_node(struct list ** list) {
     return node;
 }
 
+void move_to_head(struct list ** list, struct list * node){
+    if (!node || !list || !*list) return;
+
+    struct list * aux = *list;
+
+    // already on head
+    if (node == aux) return;
+    else {
+        node->prev->next = NULL;
+        if (node->next)
+            node->next->prev = NULL;
+        
+        node->next = *list;
+        node->next->prev = node;
+        node->prev = NULL;
+        
+        *list = node;
+    }
+}
+
 void pop_node(struct list ** list, struct list * node) {
     if (!node || !list || !*list) return;
 
     struct list * aux = *list;
 
-    if (node == *list){
-        *list = aux->next;
+    if (node == aux){
+        *list = node->next;
         if (node->next)
             node->next->prev = NULL;
     } else {

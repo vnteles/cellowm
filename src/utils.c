@@ -50,10 +50,13 @@ char * strndup(const char *s, size_t n) {
 }
 
 long getncolor(const char * hex, int n) {
-    /* assert to be a solid color */
-	long ulhex = 0xff000000;
+	long ulhex;
     /* base color lenght, without `#` (only rgb or rrggbb) */
-    uint8_t lhex = n-1;
+    uint8_t lhex;
+
+
+    ulhex = 0;
+    lhex = n-1;
 
     /* invalid color */
     if (hex[0] != '#' || (lhex != 3 && lhex != 6)) return 0;
@@ -63,10 +66,9 @@ long getncolor(const char * hex, int n) {
 
     /* handle colors in #rgb format */
     if (lhex == 3){
-        /*r*/ hex_group[0] = hex_group[1] = hex[0];
-        /*g*/ hex_group[2] = hex_group[3] = hex[1];
-        /*b*/ hex_group[4] = hex_group[5] = hex[2];
-        hex_group[6] = 0; 
+        hex_group[0] = hex_group[1] = hex[0]; /*r*/
+        hex_group[2] = hex_group[3] = hex[1]; /*g*/
+        hex_group[4] = hex_group[5] = hex[2]; /*b*/
     } else strncpy(hex_group, hex, 6); /* handle colors in #rrggbb format */
 
     //todo: check if the conversion was successful
