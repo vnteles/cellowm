@@ -214,8 +214,8 @@ void CLOSE_WINDOW(const union param * param) {
     }
 
     if (!nokill) {
-        // could not use wm delete
         kill:
+        /*could not use wm delete or kill param passed*/
         xcb_kill_client(conn, focused->id);
     }
 }
@@ -223,14 +223,14 @@ void CLOSE_WINDOW(const union param * param) {
 void CENTER_WINDOW(const union param * param) {
     struct window * w = xcb_get_focused_window();
     if (param->i & X) {
-        cello_center_window_x(w);
+        window_center_x(w);
         return;
     }
     if (param->i & Y) {
-        cello_center_window_y(w);
+        window_center_y(w);
         return;
     }
-    cello_center_window(w);
+    window_center(w);
 }
 
 void RELOAD_CONFIG(const union param * param __attribute((unused))) {
@@ -242,13 +242,12 @@ void TOGGLE_BORDER(const union param * param __attribute((unused))) {
     focused = xcb_get_focused_window();
     if (!focused) return;
 
-    if (focused->deco_mask & DECO_BORDER) {
-        __SWITCH_MASK__(focused->deco_mask, DECO_BORDER, DECO_NO_BORDER);
-    } else {
-        __SWITCH_MASK__(focused->deco_mask, DECO_NO_BORDER, DECO_BORDER);
-    }
+    if (focused->state_mask & CELLO_STATE_BORDER) 
+        __RemoveMask__(focused->state_mask, CELLO_STATE_BORDER);
+    else
+        __AddMask__(focused->state_mask, CELLO_STATE_BORDER);
 
-    cello_decorate_window(focused);
+    window_decorate(focused);
 }
 
 void TOGGLE_MAXIMIZE(const union param * param __attribute((unused))) {
@@ -334,10 +333,9 @@ void MOUSE_MOTION(const union param * param){
     ww = focused->geom.w;
     wh = focused->geom.h;
 
-
     use_xcursor = check_xcursor_support();
 
-    /*change the cursor base on action*/
+    /*change the cursor based on action*/
     if (param->i == MOVE_WINDOW){
         /*setting "fleur" cursor*/
         cursor = dynamic_cursor_get(CURSOR_MOVE);
@@ -392,7 +390,7 @@ void MOUSE_MOTION(const union param * param){
         xcb_flush(conn);
         if (gevent) free(gevent);
 
-        while ((gevent = xcb_poll_for_event(conn)) == NULL)
+        while (!(gevent = xcb_poll_for_event(conn)))
             xcb_flush(conn);
 
         switch (gevent->response_type) {
@@ -416,9 +414,7 @@ void MOUSE_MOTION(const union param * param){
                 nh = DIMENSION(wh,mevent->root_y,py);
                 if (normal_resize){
                     /*normal rigth resize*/
-
                     nw = DIMENSION(ww,mevent->root_x,px);
-
 
                 } else {
                     /*cutom left resize*/

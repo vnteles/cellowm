@@ -27,14 +27,15 @@ struct window {
     struct geometry orig;
 
     /*todo: implement frame on windows*/
-    xcb_drawable_t frame;
-    uint32_t deco_mask;
+    xcb_drawable_t handlebar;
 
-    /* store the state of the current window*/
+    /*store the state of the current window*/
     uint32_t state_mask;
+    /*temporary state mask*/
+    uint32_t tmp_state_mask;
 
     /*window desktop*/
-    uint8_t d;
+    uint32_t d;
 
     /*desktop list*/
     struct list * dlist;

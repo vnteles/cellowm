@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdlib.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 #include "types.h"
@@ -19,16 +19,23 @@
 #define X 1<<0
 #define Y 1<<1
 
-/* switch m1 to m2 from mask */
-#define __SWITCH_MASK__(mask, m1, m2) mask &= ~m1; mask |= m2
+/*add the mask `m` to `maskv`*/
+#define __AddMask__(maskv, m) maskv |= m
+/*remove the mask `m` from `maskv`*/
+#define __RemoveMask__(maskv, m) maskv &= ~m
+/*remove `m1` and add `m2` to `maskv`*/
+#define __SwitchMask__(maskv, m1, m2) __RemoveMask__(maskv, m1); __AddMask__(maskv, m2)
+/*Check if mask `m` exists in maskv*/
+#define __HasMask__(maskv, m) maskv & m
 
 /* Generally we don't need to allocate too much space,
- * thats why I'm using uint16 instead of size_t
+ * thus we are using uint16 instead of size_t or uint32
  */
 void * umalloc(uint16_t size);
 void * ucalloc(uint16_t qnt, uint16_t size);
 void * urealloc(void * ptr, uint16_t size);
 
-char * strndup(const char *s, size_t n);
+#define ufree(ptr) { free(ptr); ptr = NULL; }
 
+char * strndup(const char *s, size_t n);
 long getncolor(const char *hex, int n);

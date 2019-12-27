@@ -2,6 +2,9 @@
 
 #include "utils.h"
 
+#include "window.h"
+#include "desktop.h"
+
 #include <xcb/xcb.h>
 
 #define WMNAME "Cello"
@@ -10,16 +13,10 @@
 #define CONFIG_PATH "/.config/cellowm/config.json"
 #define CONFIG_PATH_LEN 28
 
-#define MAX_DESKTOPS 10
-
-/*todo: implement titlebar*/
-#define DECO_NONE       (1<<0)
-#define DECO_BORDER     (1<<1)
-#define DECO_NO_BORDER  (1<<2)
-
-/*maxmized*/
-#define CELLO_STATE_MAXIMIZE (1<<0)
-#define CELLO_STATE_MONOCLE  (1<<1)
+#define CELLO_STATE_NORMAL   (1<<0)
+#define CELLO_STATE_MAXIMIZE (1<<1)
+#define CELLO_STATE_MONOCLE  (1<<2)
+#define CELLO_STATE_BORDER   (1<<3)
 
 /*global connection*/
 extern xcb_connection_t * conn;
@@ -39,15 +36,9 @@ void cello_add_window_to_desktop(struct window * w, uint32_t ds);
 void cello_add_window_to_current_desktop(struct window * w);
 uint32_t cello_get_current_desktop();
 
-void cello_decorate_window(struct window * w);
-
 void cello_unmap_win_from_desktop(struct window * w);
 void cello_unmap_window(struct window * w);
 void cello_destroy_window(struct window * w);
-
-void cello_center_window(struct window * w);
-void cello_center_window_x(struct window * w);
-void cello_center_window_y(struct window * w);
 
 void cello_maximize_window(struct window * w);
 void cello_monocle_window(struct window * w);

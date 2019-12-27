@@ -21,12 +21,13 @@
 
 xcb_connection_t * conn = NULL;
 xcb_screen_t * root_screen = NULL;
-uint32_t current_ds = 0;
 
 struct list * wilist;
 struct list * dslist[MAX_DESKTOPS];
 
 struct config conf;
+FILE * logfp;
+
 
 static int cello_setup_conn() {
     NLOG("{@} Setting up the %s connection\n", WMNAME);
@@ -73,22 +74,7 @@ void cello_clean() {
 
 void cello_exit() {
     NLOG("\n{@} Exiting %s\n", WMNAME);
-    cello_clean();
-
     exit(EXIT_SUCCESS);
-}
-
-static xcb_screen_t * get_cello_root_screen(int scr) {
-    NLOG("{@} Looking for the root screen\n");
-
-    xcb_screen_t * s = xcb_get_root_screen(conn, scr);
-
-    #ifndef NO_DEBUG
-    if (!s)
-        ELOG("{!} Could not find the root screen\n");
-    #endif
-
-    return s;
 }
 
 __always_inline
@@ -97,12 +83,14 @@ static void cello_setup_cursor() {
     dynamic_cursor_set(CURSOR_POINTER);
 }
 
+// xcb
 static void cello_change_root_default_attributes() {
     (void) xcb_change_window_attributes(
         conn, root_screen->root, XCB_CW_EVENT_MASK, (uint32_t[1]) { ROOT_EVENT_MASK }
     );
 }
 
+// window
 struct window * cello_find_window(xcb_drawable_t wid){
     struct window * win;
     struct list * list;
@@ -117,6 +105,7 @@ struct window * cello_find_window(xcb_drawable_t wid){
     return NULL;
 }
 
+// window
 static void fill_geometry(xcb_drawable_t wid, int16_t * x, int16_t * y, uint16_t * w, uint16_t * h, uint8_t * depth) {
     xcb_get_geometry_cookie_t gcookie = xcb_get_geometry(conn, wid);
     xcb_get_geometry_reply_t  * geo;
@@ -130,26 +119,9 @@ static void fill_geometry(xcb_drawable_t wid, int16_t * x, int16_t * y, uint16_t
     *depth = geo->depth;
 }
 
-uint32_t cello_get_win_desktop(xcb_window_t win){
-    xcb_get_property_cookie_t cprop = xcb_get_property(
-        conn, false, win,
-        ewmh->_NET_WM_DESKTOP,
-        XCB_GET_PROPERTY_TYPE_ANY,
-        false, sizeof(uint32_t)
-    );
-    uint32_t ds = 0;
+// window
 
-    xcb_get_property_reply_t *rprop = xcb_get_property_reply(conn, cprop, NULL);
-    if (!rprop || 0 == xcb_get_property_value_length(rprop)) {
-        ds = 0;
-    } else {
-        ds = *(uint32_t *) xcb_get_property_value(rprop);
-    }
-    if(rprop) free(rprop);
-
-    return ds;
-}
-
+// window
 struct window * cello_configure_new_window(xcb_window_t win) {
     struct window * w;
     struct list * node;
@@ -175,29 +147,30 @@ struct window * cello_configure_new_window(xcb_window_t win) {
 
     fill_geometry(w->id, &w->geom.x, &w->geom.y, &w->geom.w, &w->geom.h, &w->geom.depth);
 
+
     w->d = 0;
+
+    if (w->geom.x < 1 && w->geom.y < 1) window_center(w);
+    
     w->dlist = NULL;
     w->wlist = node;
 
-    if (w->geom.x < 1 && w->geom.y < 1)
-        cello_center_window(w);
 
     /*create the frame*/
-    // xcb_create_window(
-    //     conn, XCB_COPY_FROM_PARENT, w->frame, 
-    //     root_screen->root, w->geom.x, w->geom.y, 
-    //     w->geom.w, w->geom.h, 0, 
-    //     XCB_WINDOW_CLASS_INPUT_OUTPUT, 
-    //     XCB_COPY_FROM_PARENT, XCB_GC_BACKGROUND, 
-    //     (uint32_t[]){ root_screen->black_pixel }
-    // );
+    xcb_create_window(
+        conn, XCB_COPY_FROM_PARENT, w->handlebar, 
+        w->id, w->geom.x, w->geom.y, 
+        w->geom.w, w->geom.h, 0, 
+        XCB_WINDOW_CLASS_INPUT_OUTPUT, 
+        XCB_COPY_FROM_PARENT, XCB_CW_OVERRIDE_REDIRECT, 
+        (uint32_t[]){ 1 }
+    );
 
     /*change the parent of the window*/
     // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
 
 
-    w->deco_mask =  conf.border ? DECO_BORDER : DECO_NO_BORDER;
-    w->state_mask = 0;
+    w->state_mask =  conf.border ? CELLO_STATE_BORDER : CELLO_STATE_NORMAL;
 
     // printf("Win info:\n\t| id = %d\n\t| frame = %d\n", w->id, w->frame);
 
@@ -206,6 +179,7 @@ struct window * cello_configure_new_window(xcb_window_t win) {
     return w;
 }
 
+// desktop
 uint32_t cello_get_current_desktop(){
     uint32_t current = 0;
     if ( xcb_ewmh_get_current_desktop_reply(ewmh, xcb_ewmh_get_current_desktop(ewmh, 0), &current, NULL) )
@@ -215,72 +189,7 @@ uint32_t cello_get_current_desktop(){
     exit(1);
 }
 
-#define INNER \
-        { w->geom.w, 0, ibw, w->geom.h+ibw },                 \
-        { w->geom.w+bw+obw, 0, ibw, w->geom.h+ibw },          \
-		{ 0, w->geom.h+bw+obw, w->geom.w+ibw, ibw },          \
-        { 0, w->geom.h, w->geom.w+ibw, ibw },                 \
-        { w->geom.w+bw+obw, w->geom.h+bw+obw,  bw, bw}
-
-#define OUTER \
-		{ w->geom.w+ibw, 0, obw, w->geom.h+bw*2 },          \
-		{ w->geom.w+bw, 0, obw, w->geom.h+bw*2 },           \
-		{ 0, w->geom.h+ibw, w->geom.w+bw*2, obw },          \
-		{ 0, w->geom.h+bw, w->geom.w+bw*2, obw },           \
-        { 1,1,1,1 }
-
-void cello_decorate_window(struct window * w){
-    if (w->deco_mask & DECO_NO_BORDER) {
-        xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){0});
-        return;
-    };
-
-	uint32_t values[1];
-
-    uint16_t obw = conf.outer_border;
-    uint16_t ibw = conf.inner_border;
-    uint16_t bw = ibw+obw;
-
-	*values = bw;
-	xcb_configure_window(conn, w->id,
-			XCB_CONFIG_WINDOW_BORDER_WIDTH, values);
-
-	xcb_rectangle_t rect_inner[] = {
-		INNER
-	};
-
-	xcb_rectangle_t rect_outer[] = {
-		OUTER
-	};
-
-	xcb_pixmap_t pmap = xcb_generate_id(conn);
-	xcb_create_pixmap(conn, w->geom.depth, pmap, w->id,
-			w->geom.w + (bw*2),
-			w->geom.h + (bw*2)
-	);
-
-	xcb_gcontext_t gc = xcb_generate_id(conn);
-	xcb_create_gc(conn, gc, pmap, 0, NULL);
-
-	*values = conf.outer_border_color | 0xff000000;
-
-	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, &*values);
-	xcb_poly_fill_rectangle(conn, pmap, gc, 5, rect_outer);
-
-	*values = conf.inner_border_color | 0xff000000;
-
-	xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, &*values);
-	xcb_poly_fill_rectangle(conn, pmap, gc, 5, rect_inner);
-
-	values[0] = pmap;
-	xcb_change_window_attributes(conn,w->id, XCB_CW_BORDER_PIXMAP,
-			&*values);
-
-	xcb_free_pixmap(conn,pmap);
-	xcb_free_gc(conn,gc);
-	xcb_flush(conn);
-}
-
+// desktop
 void cello_add_window_to_desktop(struct window * w, uint32_t ds){
     if (!w) return;
 
@@ -297,53 +206,40 @@ void cello_add_window_to_desktop(struct window * w, uint32_t ds){
         32, 1, &ds
 	);
 
-    /*verify if window should stay mapped*/
+    /*verify if window can stay mapped*/
     {
         uint32_t c = cello_get_current_desktop();
         struct window * fw = (struct window *) dslist[c]->gdata;
-        if (ds != c || (fw && (fw->state_mask & CELLO_STATE_MONOCLE || fw->state_mask & CELLO_STATE_MAXIMIZE ))) {
+        
+        if (ds != c || !fw  || fw->state_mask & CELLO_STATE_MONOCLE || fw->state_mask & CELLO_STATE_MAXIMIZE )
             xcb_unmap_window(conn, w->id);
-            // xcb_unmap_window(conn, w->frame);
-        }
+
     }
 
-    cello_decorate_window(w);
+    window_decorate(w);
 }
 
+// desktop
 void cello_add_window_to_current_desktop(struct window * w){
     cello_add_window_to_desktop(w, cello_get_current_desktop());
 }
 
-#define X_CENTER abs((root_screen->width_in_pixels - w->geom.w))/2
-#define Y_CENTER abs((root_screen->height_in_pixels - w->geom.h))/2
 
-void cello_center_window(struct window * w) {
-    if (!w) return;
-    xcb_move_window(w, X_CENTER, Y_CENTER);
-}
-
-void cello_center_window_x(struct window * w) {
-    if (!w) return;
-    xcb_move_window(w, X_CENTER, w->geom.y);
-}
-
-void cello_center_window_y(struct window * w) {
-    if (!w) return;
-    xcb_move_window(w, w->geom.x, Y_CENTER);
-}
 
 #undef X_CENTER
 #undef Y_CENTER
 
 #define each_window_in_ds(ds) \
     (node = dslist[ds]; node; node=node->next )
+// window
 void cello_maximize_window(struct window * w) {
     if (!w) return;
+    /*if already maximized, ignore*/
     if (w->state_mask & CELLO_STATE_MAXIMIZE) return;
 
     struct list * node;
     uint32_t current;
-
+    
     current = cello_get_current_desktop();
     /*cannot maximize a window out of the current desktop*/
     if (!dslist[current] || w->d != current) return;
@@ -351,35 +247,41 @@ void cello_maximize_window(struct window * w) {
     /*unmap other windows before maximize*/
     for each_window_in_ds(current) {
         struct window * data = (struct window *) node->gdata;
-        if (data->id != w->id) {
+        if (data->id != w->id)
             xcb_unmap_window(conn, data->id);
-            // xcb_unmap_window(conn, data->frame);
-        }
     }
 
-    /*save the original geometry*/
-    if (!(w->state_mask & CELLO_STATE_MONOCLE))
+    /*save the original geometry only if the window is at normal state*/
+    if (__HasMask__(w->state_mask, CELLO_STATE_NORMAL))
         w->orig = w->geom;
 
     /*unset borders*/
-    __SWITCH_MASK__(w->deco_mask, DECO_BORDER, DECO_NO_BORDER);
+    __RemoveMask__(w->state_mask, CELLO_STATE_BORDER);
 
-    uint32_t smask = w->state_mask;
-    w->state_mask &= ~CELLO_STATE_MAXIMIZE;
-    w->state_mask &= ~CELLO_STATE_MONOCLE;
+    /*configure window before maximize*/
     xcb_move_window(w, 0, 0);
     xcb_resize_window(w, root_screen->width_in_pixels, root_screen->height_in_pixels);
-    w->state_mask = smask;
 
     /*set maximized state*/
-    w->state_mask &= ~CELLO_STATE_MONOCLE;
-    w->state_mask |= CELLO_STATE_MAXIMIZE;
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
+    __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL | CELLO_STATE_MONOCLE, CELLO_STATE_MAXIMIZE);
+
+    /*set wm state fullscreen*/
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE, 
+        w->id, ewmh->_NET_WM_STATE, 
+        XCB_ATOM_ATOM, 32, 1, 
+        &ewmh->_NET_WM_STATE_FULLSCREEN
+    );
+
+    /*update decoration*/
+    window_decorate(w);
 
     move_to_head(&dslist[cello_get_current_desktop()], w->dlist);
+
     xcb_flush(conn);
 }
 
+// window
 void cello_monocle_window(struct window * w) {
     if (!w) return;
     if (w->state_mask & CELLO_STATE_MONOCLE) return;
@@ -414,7 +316,7 @@ void cello_monocle_window(struct window * w) {
     uint32_t smask = w->state_mask;
     w->state_mask &= ~CELLO_STATE_MAXIMIZE;
     w->state_mask &= ~CELLO_STATE_MONOCLE;
-    cello_center_window(w);
+    window_center(w);
     xcb_resize_window(w, w->geom.w, w->geom.h);
     w->state_mask = smask;
 
@@ -431,6 +333,7 @@ void cello_monocle_window(struct window * w) {
 #define get(w, l) w = (struct window *) l->gdata
 #define get_and_map(w,l)  get(w,l); xcb_map_window(conn, w->id); 
 #define get_and_unmap(w,l) get(w,l); xcb_unmap_window(conn, w->id);
+// window
 void cello_unmaximize_window(struct window * w) {
     if (!w) return;
     
@@ -438,19 +341,11 @@ void cello_unmaximize_window(struct window * w) {
     struct window * win;
     struct list * aux;
     
-    current = cello_get_current_desktop();
 
-    /*configure the window again*/
-    w->state_mask &= ~CELLO_STATE_MAXIMIZE;
-    w->state_mask &= ~CELLO_STATE_MONOCLE;
-
-    //provisory
-    {
-        if (conf.border){
-            __SWITCH_MASK__(w->deco_mask, DECO_NO_BORDER, DECO_BORDER);
-        }
-        cello_decorate_window(w);
-    }
+    /*reconfigure the state*/
+    __RemoveMask__(w->state_mask, CELLO_STATE_MAXIMIZE | CELLO_STATE_MONOCLE);
+    /*revert to the original mask values*/
+    __AddMask__(w->state_mask, w->tmp_state_mask);
 
     w->geom = w->orig;
     xcb_move_window(w, w->geom.x, w->geom.y);
@@ -458,17 +353,21 @@ void cello_unmaximize_window(struct window * w) {
 
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE, XCB_ATOM_ATOM, 32, 0, NULL);
 
+    current = cello_get_current_desktop();
     /*and map all windows*/
     for (aux = dslist[current]; aux; aux=aux->next){
-        get(win, aux);
+        __Node2Window__(aux, win);
         if (win->id != w->id){
             xcb_map_window(conn, win->id);
             // xcb_map_window(conn, win->frame);
         }
     }
 
+    window_decorate(w);
     xcb_flush(conn);
 }
+
+// desktop
 void cello_goto_desktop(uint32_t d){
     uint32_t current = cello_get_current_desktop();
     if (d == current || d > MAX_DESKTOPS)
@@ -511,6 +410,7 @@ void cello_goto_desktop(uint32_t d){
 #undef get_and_map
 #undef get
 
+// window
 void cello_update_wilist_with(xcb_drawable_t wid) {
     xcb_change_property(
         conn, XCB_PROP_MODE_APPEND , root_screen->root,
@@ -524,6 +424,7 @@ void cello_update_wilist_with(xcb_drawable_t wid) {
     );
 }
 
+// window
 void cello_update_wilist() {
     xcb_query_tree_cookie_t tcookie = xcb_query_tree(conn, root_screen->root);
 	xcb_query_tree_reply_t *reply = xcb_query_tree_reply(conn, tcookie, 0);
@@ -549,6 +450,7 @@ void cello_update_wilist() {
 	free(reply);
 }
 
+// window
 void cello_unmap_win_from_desktop(struct window * w){
     if (!w) return;
 
@@ -565,6 +467,7 @@ void cello_unmap_win_from_desktop(struct window * w){
     cello_update_wilist();
 }
 
+// xcb
 void cello_unmap_window(struct window * w) {
     if(!w) return;
 
@@ -573,6 +476,7 @@ void cello_unmap_window(struct window * w) {
 }
 
 #define each_window (window=wilist;window;window=window->next)
+// xcb
 void cello_destroy_window(struct window * w){
     struct list * window;
     for each_window {
@@ -585,53 +489,7 @@ void cello_destroy_window(struct window * w){
 }
 #undef each_window
 
-void cello_setup_windows(){
-    xcb_query_tree_reply_t * rtree;
-    xcb_query_tree_cookie_t ctree;
-    xcb_window_t * children;
-
-    xcb_get_window_attributes_reply_t * rattr;
-    xcb_get_window_attributes_cookie_t cattr;
-
-    struct window * w;
-
-    cello_update_wilist();
-
-    ctree = xcb_query_tree(conn, root_screen->root);
-    if ((rtree = xcb_query_tree_reply(conn, ctree, NULL)) == NULL) {
-        CRITICAL("Could not get query tree");
-    }
-
-    const unsigned int len = xcb_query_tree_children_length(rtree);
-    children = xcb_query_tree_children(rtree);
-
-    unsigned int i;
-    for (i = 0; i < len; i++) {
-        cattr = xcb_get_window_attributes(conn, children[i]);
-        if ((rattr = xcb_get_window_attributes_reply(conn, cattr, NULL)) == NULL)
-            continue;
-
-        if (!rattr->override_redirect && rattr->map_state == XCB_MAP_STATE_VIEWABLE) {
-            w = cello_configure_new_window(children[i]);
-            if (w) {
-                if (!dslist[cello_get_current_desktop()]) xcb_focus_window(w);
-
-                /*add window and draw the frame*/
-                cello_add_window_to_desktop(w, cello_get_win_desktop(w->id));
-                // xcb_map_window(conn, w->frame);
-
-                cello_decorate_window(w);
-
-                cello_update_wilist_with(w->id);
-            }
-        }
-    }
-
-    if (dslist[cello_get_current_desktop()])
-        xcb_focus_window((struct window *)dslist[cello_get_current_desktop()]->gdata);
-
-    xcb_flush(conn);
-}
+// window
 
 void cello_grab_keys() {
 
@@ -659,6 +517,7 @@ void cello_grab_keys() {
     }
 }
 
+// atoms
 void cello_init_atoms() {
     /*only one atom for now*/
     xcb_intern_atom_cookie_t catom = xcb_intern_atom(conn, false, 16, "WM_DELETE_WINDOW");
@@ -671,40 +530,56 @@ void cello_init_atoms() {
     free(ratom);
 }
 
+// remove
 void cello_ewmh_init() {
     ewmh_init(conn);
     cello_init_atoms();
 }
 
+// confparse
+
+/* Return true if the thread could start, 
+ * so we can handle the pthread_join.
+ * The config file must be passed so it
+ * can be freed posteriorly with pthread_join.
+ */
 bool cello_read_config_file(pthread_t * config_thread, char * config_file) {
     if (!config_thread) return false;
+    conf.config_ok = false;
 
-    strncat(config_file, getenv("HOME"), 25);
+    uint8_t baselen;
 
-    if (config_file) {
-        config_file = urealloc(config_file, CONFIG_PATH_LEN + strlen(config_file));
-        strcat(config_file, CONFIG_PATH);
-
-        ELOG("{@} Looking for %s\n", config_file);
-
-        if (access(config_file,  F_OK|R_OK) != -1) {
-            pthread_create(config_thread, NULL, (void *(*)(void*))&parse_json_config, config_file);
-            return true;
-        }
-        else
-            return (conf.config_ok = false);
+    config_file = ucalloc(25, sizeof(*config_file));
+    strncpy(config_file, getenv("HOME"), 25);
+    /* --- reallocate the config file to fit it's real size */
+    baselen = strlen(config_file);
+    if (baselen < 3) {
+        if (config_file) free(config_file);
+        return false;
     }
+    config_file = urealloc(config_file, CONFIG_PATH_LEN + baselen);
+    /* --- concat the config path */
+    strncat(config_file, CONFIG_PATH, CONFIG_PATH_LEN);
+
+    NLOG("{@} Looking for %s\n", config_file);
+    /*check if file exists and can be read*/
+    if (access(config_file,  F_OK|R_OK) != -1) {
+        pthread_create(config_thread, NULL, (void *(*)(void*))&parse_json_config, config_file);
+        return true;
+    }
+    ELOG("{@} Configuration file not found\n");
+    free(config_file);
     return false;
 }
 
 void cello_reload() {
-
-/* dev reload can reload the execution, so we can test changes on each compile */
-#ifndef DEVRELOAD
-    current_ds = cello_get_current_desktop();
     cello_clean();
-    if (cello_setup_all()) cello_deploy();
-#else
+
+    /* dev reload can reload the execution, so we can test changes on each compile */
+    #ifndef DEVRELOAD
+        if (cello_setup_all()) cello_deploy();
+    #else
+
     cello_clean();
 
     extern char * execpath;
@@ -713,23 +588,24 @@ void cello_reload() {
 }
 
 bool cello_setup_all() {
-    NLOG("{@} Initializing %s\n", WMNAME);
-
-    atexit(cello_exit);
-
-    int scr;
-
     pthread_t config_thread;
     char * config_file;
-    bool config_open = false;
+    bool config_open;
 
-    // initial size to store the home path
-    config_file = ucalloc(35, sizeof(char));
+
+    int scr;
+    static int current_ds = 0;
+
+    NLOG("{@} Initializing %s\n", WMNAME);
+    atexit(cello_exit);
+
+    config_file = NULL;
+    /*get the file status*/
     config_open = cello_read_config_file(&config_thread, config_file);
 
     if ( (scr = cello_setup_conn()) < 0 ) return false;
 
-    if ( !( root_screen = get_cello_root_screen(scr)) ) {
+    if ( !( root_screen = xcb_get_root_screen(conn, scr)) ) {
         ELOG("{!} Setup failed\n");
         return false;
     }
@@ -743,17 +619,18 @@ bool cello_setup_all() {
 
     if (current_ds)
         cello_goto_desktop(current_ds);
+    NLOG("{@} Initializing %s\n", WMNAME);
 
     cello_grab_keys();
 
     cello_change_root_default_attributes();
     cello_setup_cursor();
 
-    // load the configuration before setup the windows
+    // wait for the configuration before setup the windows
     if (config_open) {
         pthread_join(config_thread, NULL);
+        free(config_file);
     }
-    if (*config_file) free(config_file);
 
 
     xcb_grab_server(conn);
@@ -771,7 +648,7 @@ bool cello_setup_all() {
 
         free(event);
     }
-    cello_setup_windows();
+    window_hijack();
     xcb_ungrab_server(conn);
 
     NLOG("{@} Setup completed!\n");

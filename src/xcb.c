@@ -70,7 +70,7 @@ void xcb_focus_window(struct window * w) {
         xcb_change_property(
             conn, XCB_PROP_MODE_REPLACE, w->id,
             ewmh->_NET_WM_STATE, ewmh->_NET_WM_STATE,
-            32, 2, (uint32_t[]){ XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE }
+            0x20, 2, (uint32_t[]){ XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE }
         );
         xcb_set_input_focus(
             conn, XCB_INPUT_FOCUS_POINTER_ROOT,
@@ -78,7 +78,7 @@ void xcb_focus_window(struct window * w) {
         );
         xcb_change_property(
             conn, XCB_PROP_MODE_REPLACE, root_screen->root,
-            ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, 32, 1, &w->id
+            ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, 0x20, 1, &w->id
         );
 
         xcb_grab_buttons(w->id);
@@ -102,9 +102,9 @@ void xcb_raise_focused_window() {
 }
 
 void xcb_move_window(struct window * w, int16_t x, int16_t y){
-    if (w->id == root_screen->root || !w) return;
+    if (!w || w->id == root_screen->root) return;
     /*don't move maximized windows*/
-    if (w->state_mask & CELLO_STATE_MAXIMIZE || w->state_mask & CELLO_STATE_MONOCLE)
+    if (!(w->state_mask & CELLO_STATE_NORMAL))
         return;
 
     w->geom.x = x;
@@ -121,7 +121,6 @@ void xcb_move_window(struct window * w, int16_t x, int16_t y){
 
 void xcb_move_focused_window(int16_t x, int16_t y) {
     if (!focused) return;
-
 
     xcb_move_window(focused, x, y);
 }
@@ -150,7 +149,7 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     // xcb_configure_window(conn, w->frame, mask,values);
     xcb_configure_window(conn, w->id, mask,values);
 
-    cello_decorate_window(w);
+    window_decorate(w);
     xcb_flush(conn);
 }
 
