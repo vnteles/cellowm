@@ -3,3 +3,7 @@ cellowm
 dev/
 obj/
 .vscode/
+test/
+
+*.nix
+.envrc
