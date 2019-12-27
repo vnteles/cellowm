@@ -5,6 +5,7 @@ obj/
 .vscode/
 test/
 autom*
+build/
 
 *.nix
 .envrc
