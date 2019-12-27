@@ -12,7 +12,7 @@ BINDIR?=$(PREFIX)/bin
 
 CC=gcc -I$(INCLUDE_PATH)
 CFLAGS+=-std=c11 -W -Wextra -Wall
-LDADD+=`pkg-config --cflags --libs xcb-cursor xcb-ewmh xcb-icccm xcb-keysyms` -lpthread
+LDADD+=-lxcb -lxcb-cursor -lxcb-ewmh -lxcb-icccm -lxcb-keysyms -lpthread
 
 RM=rm -f
 
