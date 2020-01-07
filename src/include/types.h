@@ -26,7 +26,6 @@ struct window {
     /*original window geometry, so we can go back from maximized windows with no problems*/
     struct geometry orig;
 
-    /*todo: implement frame on windows*/
     xcb_drawable_t handlebar;
 
     /*store the state of the current window*/
@@ -46,7 +45,7 @@ struct window {
 
 union param {
     /*command*/
-    const char ** com;
+    char ** com;
     /*config constant*/
     const uint32_t i;
 };

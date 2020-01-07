@@ -8,16 +8,16 @@
 
 #define NONE 0x0
 
-#define RESIZE_WINDOW 1<<0
-#define MOVE_WINDOW 1<<1
+#define RESIZE_WINDOW ( 1 << 0 )
+#define MOVE_WINDOW ( 1 << 1 )
 
-#define ROOT_ONLY 1<<0
-#define NO_ROOT 1<<1
+#define ROOT_ONLY ( 1 << 0 )
+#define NO_ROOT ( 1 << 1 )
 
-#define KILL 1<<0
+#define KILL ( 1 << 0 )
 
-#define X 1<<0
-#define Y 1<<1
+#define X ( 1 << 0 )
+#define Y ( 1 << 1 )
 
 /*add the mask `m` to `maskv`*/
 #define __AddMask__(maskv, m) maskv |= m

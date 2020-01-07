@@ -8,7 +8,10 @@ struct list ** new_empty_list(uint8_t size) {
 
 struct list * new_empty_node(struct list ** list) {
     struct list * node;
-    ELOG("{$} Creating a new empty node for the list at %p\n", list);
+
+    if (!list) return NULL;
+
+    // NLOG("{$} Creating a new empty node for the list at %p\n", list);
 
     node = umalloc(sizeof(struct list));
 
@@ -19,7 +22,7 @@ struct list * new_empty_node(struct list ** list) {
         node->prev = NULL;
     }
     *list = node;
-    ELOG("{$} Node %p appended to list %p\n", node, list);
+    // NLOG("{$} Node %p appended to list %p\n", node, list);
     return node;
 }
 
@@ -58,13 +61,13 @@ void pop_node(struct list ** list, struct list * node) {
             node->next->prev = node->prev;
     }
 
-    free(node);
+    ufree(node);
 }
 
 void free_node(struct list ** list, struct list * node) {
     if (!node || !list || !*list) return;
     if (node->gdata)
-        free(node->gdata);
+        ufree(node->gdata);
     node->gdata = NULL;
     pop_node(list, node);
 }

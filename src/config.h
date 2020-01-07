@@ -7,7 +7,7 @@
 
 #define command(com_name, com, ...) \
     __attribute_used__ \
-    static const char * com_name[] = { com, ##__VA_ARGS__, 0 };
+    static char * com_name[] = { com, ##__VA_ARGS__, 0 };
 
 #define CHANGEDESKTOP(k, n) \
     {XK_##k,MOD,CHANGE_DESKTOP,NONE,{.i = n}}, \
@@ -21,9 +21,9 @@
 /* user changes here */
 #define MOD XCB_MOD_MASK_4
 
-command(terminal, "alacritty");
+command(terminal, "termite");
 command(fixed_menu, "rofi", "-show", "drun");
-command(reload_polybar, "/home/vtn/.config/polybar/launch.sh");
+command(reload_polybar, "~/.config/polybar/launch.sh");
 command(print, "scrot");
 
 /*these ifndef are just for files that include config.h but dont use these configuration*/

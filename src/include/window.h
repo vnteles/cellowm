@@ -2,6 +2,8 @@
 
 #include "types.h"
 
+extern struct list * wilist;
+
 /*get the window from node*/
 #define __Node2Window__(n, w) w = (struct window *) n->gdata
 

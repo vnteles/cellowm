@@ -178,12 +178,14 @@ void parse_json_config(void * vconfig_file) {
         }
 
         if (!tok_handlers[tok.code](&tok)) {
-            free(tok.val);
+            if (tok.val)
+                ufree(tok.val);
             return;
         };
-
-        free(tok.val);
-        i++;
+        
+        if (tok.val)
+            ufree(tok.val); 
+        i = i+1;
     }
 
     NLOG("{@} Configuration OK\n");

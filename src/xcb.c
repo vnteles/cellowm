@@ -104,8 +104,8 @@ void xcb_raise_focused_window() {
 void xcb_move_window(struct window * w, int16_t x, int16_t y){
     if (!w || w->id == root_screen->root) return;
     /*don't move maximized windows*/
-    if (!(w->state_mask & CELLO_STATE_NORMAL))
-        return;
+    // if (!(w->state_mask & CELLO_STATE_NORMAL))
+    //     return;
 
     w->geom.x = x;
     w->geom.y = y;
@@ -129,8 +129,8 @@ void xcb_move_focused_window(int16_t x, int16_t y) {
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     if (w->id == root_screen->root || !w) return;
     
-    if (w->state_mask & CELLO_STATE_MAXIMIZE || w->state_mask & CELLO_STATE_MONOCLE)
-        return;
+    // if (w->state_mask & CELLO_STATE_MAXIMIZE |CELLO_STATE_MONOCLE)
+    //     return;
 
     uint16_t mask = 0;
     uint32_t values[2] = {XCB_NONE, XCB_NONE};
