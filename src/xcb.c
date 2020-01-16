@@ -143,6 +143,7 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     uint32_t values[2] = {XCB_NONE, XCB_NONE};
     unsigned short i = 0;
 
+
     if ( (width > WINDOW_MIN_WIDTH) ) {
         mask |= XCB_CONFIG_WINDOW_WIDTH;
         values[i++] = width;
@@ -151,7 +152,9 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
         mask |= XCB_CONFIG_WINDOW_HEIGHT;
         values[i++] = height;
     }
-
+    
+    w->geom.w = width;
+    w->geom.h = height;
 
     // xcb_configure_window(conn, w->frame, mask,values);
     xcb_configure_window(conn, w->id, mask,values);
@@ -162,9 +165,6 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
 
 void xcb_resize_focused_window(uint16_t width, uint16_t height) {
     if (!focused) return;
-
-    focused->geom.w = width;
-    focused->geom.h = height;
 
     xcb_resize_window(focused, width, height);
 }

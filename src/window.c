@@ -68,8 +68,10 @@ struct window *window_configure_new(xcb_window_t win) {
     w->geom.w = w->geom.h = 0;
     w->geom.depth = 0;
 
-    fill_geometry(w->id, &w->geom.x, &w->geom.y, &w->geom.w, &w->geom.h,
-                                &w->geom.depth);
+    fill_geometry(
+        w->id, &w->geom.x, &w->geom.y, 
+        &w->geom.w, &w->geom.h, &w->geom.depth
+    );
 
     w->d = 0;
 
@@ -297,21 +299,25 @@ void window_maximize(struct window *w, uint16_t stt) {
                    CELLO_STATE_NORMAL);
 
         /*configure window before maximize*/
-        xcb_move_window(w, stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0,
-                                        stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0);
+        xcb_move_window(
+            w,
+            stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0,
+            stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0
+        );
 
-        xcb_resize_window(w,
-                                            // resize the window with a gap, if stt is monocle
-                                            root_screen->width_in_pixels -
-                                                    (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
-                                            root_screen->height_in_pixels -
-                                                    (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0));
+        xcb_resize_window(
+            w,
+            root_screen->width_in_pixels -
+            (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
+            root_screen->height_in_pixels -
+            (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0)
+        );
 
         printf("Resizing with : %d,%d",
            root_screen->width_in_pixels -
-               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
+               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0) * 2,
            root_screen->height_in_pixels -
-               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0));
+               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0) * 2);
 
         /*set maximized state*/
         __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);

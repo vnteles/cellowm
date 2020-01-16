@@ -204,8 +204,7 @@ void cello_monocle_window(struct window *w) {
         return;
 
     /*unmap other windows before maximize*/
-        for
-            each_window_in_ds(current) {
+        for each_window_in_ds(current) {
                 struct window *data = (struct window *)node->gdata;
                 if (data->id != w->id) {
                     xcb_unmap_window(conn, data->id);

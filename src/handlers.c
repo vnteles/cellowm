@@ -17,7 +17,6 @@
 #include "config.h"
 #include "cursor.h"
 #include "ewmh.h"
-#include "helpers.h"
 #include "list.h"
 #include "log.h"
 #include "xcb.h"

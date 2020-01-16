@@ -23,11 +23,6 @@ static void logtime(char *s) {
     #define DLOG(log, ...) \
         { char s[30]; logtime(s); fprintf(stdout, "%s "log"\n", s, ##__VA_ARGS__); fflush(stdout); }
 
-
-    // enter function
-    #define EFN(f) \
-        { fprintf(stdout, "\n_____ %s : %p _____\n", #f, f); }
-
     #define VVAL(X) fprintf(stdout, _Generic((X),  \
         char: "%c",                 \
         uint8_t: "%d",              \
@@ -48,6 +43,9 @@ static void logtime(char *s) {
 
 #else
     #define NLOG(n, ...);
+    #define DLOG(n, ...);
+    #define VVAL(X);
+    #define VARDUMP(v);
 #endif
 
 /* Error log */
