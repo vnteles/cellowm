@@ -10,12 +10,14 @@
 #include <xcb/xcb_keysyms.h>
 #include <xcb/randr.h>
 
+
 #include <string.h>
 
 #include "cello.h"
 #include "config.h"
 #include "cursor.h"
 #include "ewmh.h"
+#include "helpers.h"
 #include "list.h"
 #include "log.h"
 #include "xcb.h"
@@ -24,8 +26,8 @@
 
 void handle_event(xcb_generic_event_t* e) {
     const uint8_t event_len = sizeof(events) / sizeof(*events);
-    if ((e->response_type) < event_len && events[e->response_type]) {
-        events[e->response_type](e);
+    if ((e->response_type) < event_len && events[e->response_type & 0x7F]) {
+        events[e->response_type & 0x7F](e);
         xcb_flush(conn);
     }
 }
@@ -94,7 +96,7 @@ static void parse_opts(int argc, char ** argv) {
 }
 
 void handle_message(char * msg, int msg_len, int fd) {
-    //TODO: send message back to the fd
+    //TODO: send error message back to the fd
 
     int argc = 0, j = 10;
     char ** argv;
@@ -234,185 +236,140 @@ void MOVE_WINDOW_TO_DESKTOP(const union param* param) {
     xcb_unfocus();
 }
 
-/*free fallback cursor*/
-#define freefc(cursor) \
-    if (!use_xcursor) xcb_free_cursor(conn, cursor);
 
-void MOUSE_MOTION(const union param* param) {
-    xcb_cursor_t cursor = 0;
-    /*generic event*/
-    xcb_generic_event_t* gevent = NULL;
+void MOUSE_MOTION(const union param * param) {
+    int action = param->i;
 
-    /*pointer info*/
-    xcb_query_pointer_reply_t* rpointer;
-    xcb_query_pointer_cookie_t cpointer;
+    /*genererate the cursor*/
+    xcb_cursor_t cursor;
+    cursor = dynamic_cursor_get(action == MOVE_WINDOW ? CURSOR_MOVE : CURSOR_BOTTOM_RIGHT_CORNER);
 
-    /*grab pointer info*/
-    xcb_grab_pointer_reply_t* rgrab;
-    xcb_grab_pointer_cookie_t cgrab;
-    xcb_generic_error_t* error = NULL;
+     /*----- grab the pointer location -----*/
+    xcb_query_pointer_cookie_t query_cookie;
+    query_cookie = xcb_query_pointer(conn, root_screen->root);
 
-    bool use_xcursor;
+    xcb_query_pointer_reply_t * query_reply;
+    query_reply = xcb_query_pointer_reply(conn, query_cookie, NULL);
 
-    /*grab keyboard info*/
-    xcb_grab_keyboard_reply_t* rkeyboard;
-    xcb_grab_keyboard_cookie_t ckeyboard;
-
-    /*pointer coords*/
-    int16_t px, py;
-    /*window coords*/
-    int16_t wx, wy;
-    /*window dimentions (width & height)*/
-    uint16_t ww, wh;
-
-    struct window* target;
-    bool normal_resize = true;
-
-    cpointer = xcb_query_pointer(conn, root_screen->root);
-
-    if (!(rpointer = xcb_query_pointer_reply(conn, cpointer, NULL))) return;
-
-    if ( !(target = find_window_by_id(rpointer->child)) || target->id == root_screen->root) {
-        ufree(rpointer);
+    if (query_reply == NULL)
         return;
-    }
 
-    px = rpointer->root_x;
-    py = rpointer->root_y;
+    /* get the target window */
+    struct window * target;
+    target = find_window_by_id(query_reply->child);
 
-    wx = target->geom.x;
-    wy = target->geom.y;
-    ww = target->geom.w;
-    wh = target->geom.h;
+    if (!target) 
+        return;
 
-    use_xcursor = check_xcursor_support();
+    /*----- grab the pointer -----*/
 
-    /*change the cursor based on action*/
-    if (param->i == MOVE_WINDOW) {
-        /*setting "fleur" cursor*/
-        cursor = dynamic_cursor_get(CURSOR_MOVE);
-    } else if (param->i == RESIZE_WINDOW) {
-        if ((normal_resize = px > wx + (ww / 2)))
-            /*setting "bottom_right_corner" cursor*/
-            cursor = dynamic_cursor_get(CURSOR_BOTTOM_RIGHT_CORNER);
-        else
-            /*setting "bottom_left_corner" cursor*/
-            cursor = dynamic_cursor_get(CURSOR_BOTTOM_LEFT_CORNER);
-
-    }
-
-    cgrab = xcb_grab_pointer(
+    /*generate the cookie*/
+    xcb_grab_pointer_cookie_t pointer_cookie;
+    pointer_cookie = xcb_grab_pointer(
         conn, false, root_screen->root,
         XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_POINTER_MOTION,
         XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
         cursor, XCB_CURRENT_TIME
     );
 
-    if (!(rgrab = xcb_grab_pointer_reply(conn, cgrab, &error))) {
-        ELOG("Could not grab pointer [error code: %d]\n", error->error_code);
+    /*grab the pointer reply*/
+    xcb_grab_pointer_reply_t * pointer_reply;
+    pointer_reply = xcb_grab_pointer_reply(conn, pointer_cookie, NULL);
 
-        if (error) ufree(error);
+    /*unable to grab the pointer*/
+    if (pointer_reply == NULL) {
+        ufree(query_reply);
 
-        freefc(cursor);
+        if (check_xcursor_support() == false) 
+            xcb_free_cursor(conn, cursor);
 
         return;
     }
-    ufree(rgrab);
 
-    ckeyboard =
-            xcb_grab_keyboard(conn, false, root_screen->root, XCB_CURRENT_TIME,
-                                                XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    ufree(pointer_reply);
 
-    if (!(rkeyboard = xcb_grab_keyboard_reply(conn, ckeyboard, &error))) {
-        if (error) {
-            ELOG("Could not grab keyboard [error_code = %d]\n",
-           error->error_code);
-            ufree(error);
+    /*----- grab the keyboard -----*/
+
+    xcb_grab_keyboard_cookie_t keyboard_cookie;
+    keyboard_cookie = xcb_grab_keyboard(
+        conn, false, root_screen->root, XCB_CURRENT_TIME,
+        XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC
+    );
+    
+    xcb_grab_keyboard_reply_t * keyboard_reply;
+    keyboard_reply = xcb_grab_keyboard_reply(conn, keyboard_cookie, NULL);
+    if (keyboard_reply == NULL) {
+        
+        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+        ufree(query_reply);
+
+        if (check_xcursor_support() == false) 
+            xcb_free_cursor(conn, cursor);
+
+        return;
+    }
+
+    ufree(keyboard_reply);
+
+    /*----- main loop -----*/
+
+    struct geometry wingeo = target->geom;
+
+    int16_t 
+        px = query_reply->root_x, 
+        py = query_reply->root_y;
+
+    bool motion = true;
+    for (;motion;) {
+        xcb_generic_event_t * event;
+        while (!(event = xcb_poll_for_event(conn))) {
+            xcb_flush(conn);
         }
 
-        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
-        freefc(cursor);
 
-        return;
-    }
+        switch (event->response_type & 0x7F) {
+        case XCB_DESTROY_NOTIFY: case XCB_MAP_REQUEST: case XCB_PROPERTY_NOTIFY: case XCB_CONFIGURE_REQUEST:
+            handle_event(event);
+            break;
+        case XCB_FOCUS_OUT: case XCB_KEY_PRESS: case XCB_KEY_RELEASE: case XCB_BUTTON_RELEASE: case XCB_BUTTON_PRESS:
+            motion = false;
+            break;
+        case XCB_MOTION_NOTIFY: {
+            /* prepare to do the action */
+            xcb_motion_notify_event_t * e = (xcb_motion_notify_event_t *) event;
 
-    ufree(rkeyboard);
-    xcb_raise_focused_window();
-    // event loop goes here
-    for (; target;) {
-        xcb_flush(conn);
-        if (gevent) ufree(gevent);
+            switch (action) {
+            case MOVE_WINDOW:
+                xcb_move_window(
+                    target,
+                    wingeo.x + e->event_x - px,
+                    wingeo.y + e->event_y - py
+                );
 
-        while (!(gevent = xcb_poll_for_event(conn))) xcb_flush(conn);
-
-        switch (gevent->response_type) {
-            case XCB_BUTTON_RELEASE:
-            case XCB_BUTTON_PRESS:
-            case XCB_KEY_RELEASE:
-            case XCB_KEY_PRESS:
-            case XCB_FOCUS_OUT:
-                goto end_motion;
-
-            case XCB_MOTION_NOTIFY: {
-                xcb_motion_notify_event_t* mevent = (xcb_motion_notify_event_t*)gevent;
-                if (param->i == MOVE_WINDOW) {
-                    xcb_move_window(
-                        target,
-                        wx + mevent->event_x - px,
-                        wy + mevent->event_y - py
-                    );
-                }
-
-                else if (param->i == RESIZE_WINDOW) {
-                    int16_t nw = 0, nh = 0;
-
-#define DIMENSION(win_o, event_o, axis) ((int16_t)(win_o + event_o - axis))
-
-                    nh = DIMENSION(wh, mevent->root_y, py);
-                    if (normal_resize) {
-                        /*normal right resize*/
-                        nw = DIMENSION(ww, mevent->root_x, px);
-
-                    } else {
-                        /*custom left resize*/
-                        int16_t nx = 0;
-
-                        nw = DIMENSION(ww, -mevent->root_x, -px);
-                        nx = target->geom.x + (-nw + target->geom.w);
-
-                        xcb_move_focused_window(nx, target->geom.y);
-                    }
-
-#undef DIMENSION
-
-                    if (nw < 0) nw = target->geom.w;
-                    if (nh < 0) nh = target->geom.h;
-
-                    xcb_resize_focused_window((uint16_t)nw, (uint16_t)nh);
-                } else
-                    /*some other non default action*/
-                    break;
-
-                xcb_flush(conn);
+                break;
+            
+            case RESIZE_WINDOW:
+                xcb_resize_window(
+                    target,
+                    wingeo.w + e->event_x - px,
+                    wingeo.h + e->event_y - py
+                );
                 break;
             }
-
-            case XCB_PROPERTY_NOTIFY:
-            case XCB_CONFIGURE_REQUEST:
-            case XCB_MAP_REQUEST:
-            case XCB_DESTROY_NOTIFY:
-                events[gevent->response_type](gevent);
-                break;
+            break;
         }
+        default:
+            break;
+        }
+
+        ufree(event);
+        xcb_flush(conn);
     }
-end_motion:
-    if (gevent) ufree(gevent);
-    if (rpointer) ufree(rpointer);
+    
+    /*----- clean up -----*/
+    if (check_xcursor_support() == false) 
+        xcb_free_cursor(conn, cursor);
 
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
     xcb_ungrab_keyboard(conn, XCB_CURRENT_TIME);
-    freefc(cursor);
-
-    xcb_flush(conn);
 }
-#undef freefc
