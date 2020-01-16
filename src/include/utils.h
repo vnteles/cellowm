@@ -19,6 +19,9 @@
 #define X ( 1 << 0 )
 #define Y ( 1 << 1 )
 
+// get the higher value from the set (a,b)
+#define max(a, b) (a > b ? a : b)
+
 /*add the mask `m` to `maskv`*/
 #define __AddMask__(maskv, m) maskv |= m
 /*remove the mask `m` from `maskv`*/
@@ -31,6 +34,7 @@
 /* Generally we don't need to allocate too much space,
  * thus we are using uint16 instead of size_t or uint32
  */
+
 void * umalloc(uint16_t size);
 void * ucalloc(uint16_t qnt, uint16_t size);
 void * urealloc(void * ptr, uint16_t size);

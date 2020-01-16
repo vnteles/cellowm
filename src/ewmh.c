@@ -13,13 +13,13 @@ xcb_ewmh_connection_t * ewmh;
 xcb_window_t ewmh_w;
 
 void ewmh_init(xcb_connection_t * conn) {
-	NLOG("{@} Initializing ewmh\n");
-	ewmh = ucalloc(1, sizeof(xcb_ewmh_connection_t));
+    NLOG("Initializing ewmh");
+    ewmh = ucalloc(1, sizeof(xcb_ewmh_connection_t));
 
-	xcb_intern_atom_cookie_t *cookie = xcb_ewmh_init_atoms(conn, ewmh);
+    xcb_intern_atom_cookie_t *cookie = xcb_ewmh_init_atoms(conn, ewmh);
 
-	if(!xcb_ewmh_init_atoms_replies(ewmh, cookie, (void *)0)){
-        CRITICAL("{!} Cannot initiate ewmh atoms\n");
+    if(!xcb_ewmh_init_atoms_replies(ewmh, cookie, (void *)0)){
+        CRITICAL("{!} Cannot initiate ewmh atoms");
     }
 }
 
@@ -100,15 +100,65 @@ bool ewmh_is_special_window(xcb_window_t win) {
             atom == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR   \
         )
 
-		for (i = 0; i < wt.atoms_len; i++){
+        for (i = 0; i < wt.atoms_len; i++){
             atom = wt.atoms[i];
-			if is_special return true;
+            if is_special return true;
         }
 
         #undef is_special
 
-		xcb_ewmh_get_atoms_reply_wipe(&wt);
-	}
+        xcb_ewmh_get_atoms_reply_wipe(&wt);
+    }
 
     return false;
+}
+
+bool ewmh_check_strut(xcb_window_t wid) {
+    puts("hmmm");
+    xcb_ewmh_wm_strut_partial_t struts;
+    bool changed = false;
+	if (xcb_ewmh_get_wm_strut_partial_reply(ewmh, xcb_ewmh_get_wm_strut_partial(ewmh, wid), &struts, NULL) == 1) {
+            int32_t 
+                wid = root_screen->width_in_pixels, 
+                hei = root_screen->height_in_pixels;
+
+			if (
+                (int16_t)struts.left > 0 &&
+                (int16_t)struts.left < (wid - 1) &&
+                (int16_t)struts.left_end_y >= 0 &&
+                (int16_t)struts.left_start_y < hei 
+            ) {
+				int dx = struts.left;
+				printf("new padding left: %d\n", dx);
+				changed = true;
+			} if ((wid) > (int16_t)(wid - struts.right) &&
+			    (int16_t)(wid - struts.right) > 0 &&
+			    (int16_t)struts.right_end_y >= 0 &&
+			    (int16_t)struts.right_start_y < (hei)
+            ) {
+                int dx = (wid) - wid + struts.right;
+                printf("new padding right: %d\n", dx);
+				changed = true;
+			} if (0 < (int16_t) struts.top &&
+			    (int16_t)struts.top < (hei - 1) &&
+			    (int16_t)struts.top_end_x >= 0 &&
+			    (int16_t)struts.top_start_x < (0 + wid)) {
+				int dy = struts.top - 0;
+				
+                printf("new padding top: %d\n", dy);
+
+				changed = true;
+			}
+			if ((0 + hei) > (int16_t)(hei - struts.bottom) &&
+			    (int16_t) (hei - struts.bottom) > 0 &&
+			    (int16_t) struts.bottom_end_x >= 0 &&
+			    (int16_t) struts.bottom_start_x < (0 + wid)) {
+				int dy = (0 + hei) - hei + struts.bottom;
+				printf("new padding bottom: %d", dy);
+
+				changed = true;
+			}
+
+	}
+	return changed;
 }

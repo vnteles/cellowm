@@ -79,7 +79,7 @@ xcb_cursor_t get_fallback_cursor(uint8_t id){
 }
 
 void set_fallback_cursor(uint8_t cursor) {
-    NLOG("{@} Setting up the XCB fallback cursors\n");
+    NLOG("Setting up the XCB fallback cursors");
 
     xcb_cursor_t xcb_cursor = get_fallback_cursor(cursor);
 
@@ -90,7 +90,7 @@ void set_fallback_cursor(uint8_t cursor) {
 }
 
 void set_cursor(CCursor cursor_id){
-    NLOG("{@} Setting up the XCursors\n");
+    NLOG("Setting up the XCursors");
     xcb_cursor_t c =  get_cursor((uint8_t) cursor_id);
     (void) xcb_change_window_attributes(conn, root_screen->root, XCB_CW_CURSOR, (uint32_t[]){
         c

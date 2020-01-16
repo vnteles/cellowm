@@ -13,358 +13,317 @@
 
 struct list *wilist;
 
-/*
-void window_round(struct window *w) {
-  int rad = 4;
-  unsigned int ww, wh, dia = 2 * rad;
+struct window *find_window_by_id(xcb_drawable_t wid) {
+    struct window *win;
+    struct list *list;
 
-  ww = w->geom.w;
-  wh = w->geom.h;
+    for (list = wilist; list; list = list->next) {
+        win = (struct window *)list->gdata;
+        if (win->id == wid) {
+            return win;
+        }
+    }
 
-  if (ww < dia || wh < dia)
-    return 0;
-
-  xcb_pixmap_t mask = xcb_generate_id(conn);
-  if (!mask)
-    return 0;
-  xcb_create_pixmap(conn, 1, mask, w->id, ww, wh);
-
-  xcb_gc_t shape_gc = xcb_generate_id(conn);
-  if (!shape_gc) {
-    xcb_free_pixmap(conn, mask);
-    return 0;
-  }
-  xcb_create_gc(conn, shape_gc, mask, 0, NULL);
-
-  xcb_change_gc(conn, shape_gc, XCB_GC_FOREGROUND, (uint32_t[]){0xffffff});
-  xcb_poly_fill_rectangle(conn, mask, shape_gc, 1,
-                          (xcb_rectangle_t[]){{0, 0, ww, wh}});
-
-  xcb_change_gc(conn, shape_gc, XCB_GC_FOREGROUND, (uint32_t[]){1});
-
-  xcb_poly_fill_arc(conn, mask, shape_gc, 4,
-                    (xcb_arc_t[]){
-                        {0, 0, dia, dia, 0, 36000},
-                        {ww - dia - 1, 0, dia, dia, 0, 36000},
-                        {0, wh - dia - 1, dia, dia, 0, 36000},
-                        {ww - dia - 1, wh - dia - 1, dia, dia, 0, 36000},
-                    });
-
-  xcb_poly_fill_rectangle(conn, mask, shape_gc, 2,
-                          (xcb_rectangle_t[]){
-                              {rad, 0, ww - dia, wh},
-                              {0, rad, ww, wh - dia},
-                          });
-
-  xcb_shape_mask(conn, XCB_SHAPE_SO_SET, XCB_SHAPE_SK_BOUNDING, w->id, 0, 0,
-                 mask);
-
-  xcb_free_pixmap(conn, mask);
-  xcb_free_gc(conn, shape_gc);
+        return NULL;
 }
-*/
 
 static void fill_geometry(xcb_drawable_t wid, int16_t *x, int16_t *y,
                           uint16_t *w, uint16_t *h, uint8_t *depth) {
-  xcb_get_geometry_cookie_t gcookie = xcb_get_geometry(conn, wid);
-  xcb_get_geometry_reply_t *geo;
+    xcb_get_geometry_cookie_t gcookie = xcb_get_geometry(conn, wid);
+    xcb_get_geometry_reply_t *geo;
 
-  if (!(geo = xcb_get_geometry_reply(conn, gcookie, NULL)))
-    return;
+    if (!(geo = xcb_get_geometry_reply(conn, gcookie, NULL)))
+        return;
 
-  *x = geo->x;
-  *y = geo->y;
-  *w = geo->width;
-  *h = geo->height;
-  *depth = geo->depth;
+    *x = geo->x;
+    *y = geo->y;
+    *w = geo->width;
+    *h = geo->height;
+    *depth = geo->depth;
 }
 
 struct window *window_configure_new(xcb_window_t win) {
-  struct window *w;
-  struct list *node;
+    struct window *w;
+    struct list *node;
 
-  if (ewmh_is_special_window(win)) {
-    xcb_map_window(conn, win);
-    return NULL;
-  }
+    if (ewmh_is_special_window(win)) {
+        xcb_map_window(conn, win);
+        return NULL;
+    }
 
-  w = umalloc(sizeof(struct window));
+    w = umalloc(sizeof(struct window));
 
-  if (!(node = new_empty_node(&wilist)))
-    return 0;
-  node->gdata = (char *)w;
+    if (!(node = new_empty_node(&wilist)))
+        return 0;
+    node->gdata = (unsigned char *)w;
 
-  w->id = win;
+    w->id = win;
 
-  xcb_change_window_attributes_checked(
-      conn, w->id, XCB_CW_EVENT_MASK,
-      (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW});
-  xcb_change_save_set(conn, XCB_SET_MODE_INSERT, w->id);
+    xcb_change_window_attributes_checked(
+            conn, w->id, XCB_CW_EVENT_MASK,
+            (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW});
+    xcb_change_save_set(conn, XCB_SET_MODE_INSERT, w->id);
 
-  w->geom.x = w->geom.y = -1;
-  w->geom.w = w->geom.h = 0;
-  w->geom.depth = 0;
+    w->geom.x = w->geom.y = -1;
+    w->geom.w = w->geom.h = 0;
+    w->geom.depth = 0;
 
-  fill_geometry(w->id, &w->geom.x, &w->geom.y, &w->geom.w, &w->geom.h,
-                &w->geom.depth);
+    fill_geometry(w->id, &w->geom.x, &w->geom.y, &w->geom.w, &w->geom.h,
+                                &w->geom.depth);
 
-  w->d = 0;
+    w->d = 0;
 
-  if (w->geom.x < 1 && w->geom.y < 1)
-    window_center(w);
+    if (w->geom.x < 1 && w->geom.y < 1)
+        center_window(w);
 
-  w->dlist = NULL;
-  w->wlist = node;
+    w->dlist = NULL;
+    w->wlist = node;
 
-  w->state_mask = CELLO_STATE_NORMAL;
-  w->state_mask |= conf.border ? CELLO_STATE_BORDER : 0;
+    w->state_mask = CELLO_STATE_NORMAL;
+    w->state_mask |= conf.border ? CELLO_STATE_BORDER : 0;
 
-  /*create the frame*/
-  xcb_create_window(conn, XCB_COPY_FROM_PARENT, w->handlebar, w->id, w->geom.x,
-                    w->geom.y, w->geom.w, w->geom.h, 0,
-                    XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
-                    XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
+    /*create the frame*/
+    // xcb_create_window(conn, XCB_COPY_FROM_PARENT, w->handlebar, w->id, w->geom.x,
+    //                                     w->geom.y, w->geom.w, w->geom.h, 0,
+    //                                     XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
+    //                                     XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
 
-  /*change the parent of the window*/
-  // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
+    /*change the parent of the window*/
+    // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
 
-  xcb_flush(conn);
+    xcb_flush(conn);
 
-  return w;
+    return w;
 }
 
 #define X_CENTER abs((root_screen->width_in_pixels - w->geom.w)) / 2
 #define Y_CENTER abs((root_screen->height_in_pixels - w->geom.h)) / 2
 
-void window_center(struct window *w) {
-  if (!w)
-    return;
-  xcb_move_window(w, X_CENTER, Y_CENTER);
+void center_window(struct window *w) {
+    if (!w)
+        return;
+    xcb_move_window(w, X_CENTER, Y_CENTER);
 }
 
-void window_center_x(struct window *w) {
-  if (!w)
-    return;
-  xcb_move_window(w, X_CENTER, w->geom.y);
+void center_window_x(struct window *w) {
+    if (!w)
+        return;
+    xcb_move_window(w, X_CENTER, w->geom.y);
 }
 
-void window_center_y(struct window *w) {
-  if (!w)
-    return;
-  xcb_move_window(w, w->geom.x, Y_CENTER);
+void center_window_y(struct window *w) {
+    if (!w)
+        return;
+    xcb_move_window(w, w->geom.x, Y_CENTER);
 }
 
 #undef X_CENTER
 #undef Y_CENTER
 
-void window_decorate(struct window *w) {
-#define __InnerBorder__                                                        \
-  (xcb_rectangle_t[]) {                                                        \
-    {w->geom.w, 0, ibw, w->geom.h + ibw},                                      \
-        {w->geom.w + bw + obw, 0, ibw, w->geom.h + ibw},                       \
-        {0, w->geom.h + bw + obw, w->geom.w + ibw, ibw},                       \
-        {0, w->geom.h, w->geom.w + ibw, ibw}, {                                \
-      w->geom.w + bw + obw, w->geom.h + bw + obw, bw, bw                       \
-    }                                                                          \
-  }
+void update_decoration(struct window *w) {
+    /* ignore if no border modifier is specified */
+    if (!(w->state_mask & CELLO_STATE_BORDER)) {
+        xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){0});
+        return;
+    };
 
-#define __OuterBorder__                                                        \
-  (xcb_rectangle_t[]) {                                                        \
-    {w->geom.w + ibw, 0, obw, w->geom.h + bw * 2},                             \
-        {w->geom.w + bw, 0, obw, w->geom.h + bw * 2},                          \
-        {0, w->geom.h + ibw, w->geom.w + bw * 2, obw},                         \
-        {0, w->geom.h + bw, w->geom.w + bw * 2, obw}, {                        \
-      1, 1, 1, 1                                                               \
-    }                                                                          \
-  }
+    uint16_t obw = conf.outer_border;
+    uint16_t ibw = conf.inner_border;
+    uint16_t bw = ibw + obw;
 
-  if (!(w->state_mask & CELLO_STATE_BORDER)) {
-    (void)xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH,
-                               (uint32_t[]){0});
-    return;
-  };
+    xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){bw});
 
-  uint16_t obw = conf.outer_border;
-  uint16_t ibw = conf.inner_border;
-  uint16_t bw = ibw + obw;
+    /*generate the pixmap*/
+    xcb_pixmap_t pmap = xcb_generate_id(conn);
+    xcb_create_pixmap(
+        conn, w->geom.depth, pmap, w->id, w->geom.w + (bw * 2), w->geom.h + (bw * 2)
+    );
 
-  (void)xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH,
-                             (uint32_t[]){bw});
+    /*generate the graphic context*/
+    xcb_gcontext_t gc = xcb_generate_id(conn);
+    xcb_create_gc(conn, gc, pmap, 0, NULL);
 
-  /*generate the pixmap*/
-  xcb_pixmap_t pmap = xcb_generate_id(conn);
-  (void)xcb_create_pixmap(conn, w->geom.depth, pmap, w->id,
-                          w->geom.w + (bw * 2), w->geom.h + (bw * 2));
+    /*rectangle definitions*/
+#define __InnerBorder__                                                 \
+    (xcb_rectangle_t[]) {                                               \
+        {w->geom.w, 0, ibw, w->geom.h + ibw},                           \
+        {w->geom.w + bw + obw, 0, ibw, w->geom.h + ibw},                \
+        {0, w->geom.h + bw + obw, w->geom.w + ibw, ibw},                \
+        {0, w->geom.h, w->geom.w + ibw, ibw},                           \
+        { w->geom.w + bw + obw, w->geom.h + bw + obw, bw, bw }          \
+    }
 
-  /*generate the graphic context*/
-  xcb_gcontext_t gc = xcb_generate_id(conn);
-  (void)xcb_create_gc(conn, gc, pmap, 0, NULL);
+#define __OuterBorder__                                                 \
+    (xcb_rectangle_t[]) {                                               \
+        {w->geom.w + ibw, 0, obw, w->geom.h + bw * 2},                  \
+        {w->geom.w + bw, 0, obw, w->geom.h + bw * 2},                   \
+        {0, w->geom.h + ibw, w->geom.w + bw * 2, obw},                  \
+        {0, w->geom.h + bw, w->geom.w + bw * 2, obw},                   \
+    }
 
-  /*draw the outer border*/
-  xcb_change_gc(conn, gc, XCB_GC_FOREGROUND,
-                (uint32_t[]){conf.outer_border_color | 0xff000000});
-  xcb_poly_fill_rectangle(conn, pmap, gc, 5, __OuterBorder__);
+    /*draw the outer border*/
+    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){conf.outer_border_color | 0xff000000});
+    xcb_poly_fill_rectangle(conn, pmap, gc, 4, __OuterBorder__);
 
-  /*draw the inner border*/
-  xcb_change_gc(conn, gc, XCB_GC_FOREGROUND,
-                (uint32_t[]){conf.inner_border_color | 0xff000000});
-  xcb_poly_fill_rectangle(conn, pmap, gc, 5, __InnerBorder__);
-
-  xcb_change_window_attributes(conn, w->id, XCB_CW_BORDER_PIXMAP,
-                               (uint32_t[]){pmap});
-
-  (void)xcb_free_pixmap(conn, pmap);
-  (void)xcb_free_gc(conn, gc);
-  (void)xcb_flush(conn);
+    /*draw the inner border*/
+    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){conf.inner_border_color | 0xff000000});
+    xcb_poly_fill_rectangle(conn, pmap, gc, 5, __InnerBorder__);
 
 #undef __OuterBorder__
 #undef __InnerBorder__
+
+    xcb_change_window_attributes(conn, w->id, XCB_CW_BORDER_PIXMAP,
+                               (uint32_t[]){pmap});
+
+    (void)xcb_free_pixmap(conn, pmap);
+    (void)xcb_free_gc(conn, gc);
+    (void)xcb_flush(conn);
 }
 
 uint32_t get_window_desktop(xcb_window_t win) {
-  uint32_t ds;
-  xcb_get_property_cookie_t cprop;
-  xcb_get_property_reply_t *rprop;
+    uint32_t ds;
+    xcb_get_property_cookie_t cprop;
+    xcb_get_property_reply_t *rprop;
 
-  cprop = xcb_get_property(conn, false, win, ewmh->_NET_WM_DESKTOP,
+    cprop = xcb_get_property(conn, false, win, ewmh->_NET_WM_DESKTOP,
                            XCB_GET_PROPERTY_TYPE_ANY, false, sizeof(uint32_t));
 
-  ds = 0;
-
-  rprop = xcb_get_property_reply(conn, cprop, NULL);
-
-  if (!rprop || !xcb_get_property_value_length(rprop))
     ds = 0;
-  else
-    ds = *(uint32_t *)xcb_get_property_value(rprop);
 
-  if (rprop)
-    ufree(rprop);
+    rprop = xcb_get_property_reply(conn, cprop, NULL);
 
-  return ds;
+    if (!rprop || !xcb_get_property_value_length(rprop))
+        ds = 0;
+    else
+        ds = *(uint32_t *)xcb_get_property_value(rprop);
+
+    if (rprop)
+        ufree(rprop);
+
+    return ds;
 }
 
 void window_hijack() {
 
-  xcb_query_tree_reply_t *rtree;
-  xcb_query_tree_cookie_t ctree;
-  xcb_window_t *children;
+    xcb_query_tree_reply_t *rtree;
+    xcb_query_tree_cookie_t ctree;
+    xcb_window_t *children;
 
-  xcb_get_window_attributes_reply_t *rattr;
-  xcb_get_window_attributes_cookie_t cattr;
+    xcb_get_window_attributes_reply_t *rattr;
+    xcb_get_window_attributes_cookie_t cattr;
 
-  struct window *w;
+    struct window *w;
 
-  cello_update_wilist();
+    cello_update_wilist();
 
-  ctree = xcb_query_tree(conn, root_screen->root);
-  if ((rtree = xcb_query_tree_reply(conn, ctree, NULL)) == NULL) {
-    CRITICAL("Could not get query tree");
-  }
-
-  const unsigned int len = xcb_query_tree_children_length(rtree);
-  children = xcb_query_tree_children(rtree);
-
-  unsigned int i;
-  for (i = 0; i < len; i++) {
-    cattr = xcb_get_window_attributes(conn, children[i]);
-    if ((rattr = xcb_get_window_attributes_reply(conn, cattr, NULL)) == NULL)
-      continue;
-
-    if (!rattr->override_redirect &&
-        rattr->map_state == XCB_MAP_STATE_VIEWABLE) {
-
-      w = window_configure_new(children[i]);
-
-      if (w) {
-        if (!dslist[cello_get_current_desktop()])
-          xcb_focus_window(w);
-
-        /*add window and draw the frame*/
-        cello_add_window_to_desktop(w, get_window_desktop(w->id));
-        // xcb_map_window(conn, w->frame);
-
-        window_decorate(w);
-
-        cello_update_wilist_with(w->id);
-        puts("------new window added");
-      }
+    ctree = xcb_query_tree(conn, root_screen->root);
+    if ((rtree = xcb_query_tree_reply(conn, ctree, NULL)) == NULL) {
+        CRITICAL("Could not get query tree");
     }
-  }
 
-  if (dslist[cello_get_current_desktop()])
-    xcb_focus_window(
-        (struct window *)dslist[cello_get_current_desktop()]->gdata);
+    const unsigned int len = xcb_query_tree_children_length(rtree);
+    children = xcb_query_tree_children(rtree);
 
-  NLOG("All windows hijacked.\n");
-  xcb_flush(conn);
+    unsigned int i;
+    for (i = 0; i < len; i++) {
+        cattr = xcb_get_window_attributes(conn, children[i]);
+        if ((rattr = xcb_get_window_attributes_reply(conn, cattr, NULL)) == NULL)
+            continue;
+
+        if (!rattr->override_redirect &&
+                rattr->map_state == XCB_MAP_STATE_VIEWABLE) {
+
+            w = window_configure_new(children[i]);
+
+            if (w) {
+                if (!dslist[cello_get_current_desktop()])
+                    xcb_focus_window(w);
+
+                /*add window and draw the frame*/
+                cello_add_window_to_desktop(w, get_window_desktop(w->id));
+                // xcb_map_window(conn, w->frame);
+
+                update_decoration(w);
+
+                cello_update_wilist_with(w->id);
+                puts("------new window added");
+            }
+        }
+    }
+
+    if (dslist[cello_get_current_desktop()])
+        xcb_focus_window(
+                (struct window *)dslist[cello_get_current_desktop()]->gdata);
+
+    NLOG("All windows hijacked.");
+    xcb_flush(conn);
 }
 
 #define each_window_in_ds(ds) (node = dslist[ds]; node; node = node->next)
 
 void window_maximize(struct window *w, uint16_t stt) {
-  struct list *node;
-  uint32_t cds;
+    struct list *node;
+    uint32_t cds;
 
-  if (!w)
-    return;
-  /*if already maximized, ignore*/
-  if (w->state_mask & stt)
-    return;
+    if (!w)
+        return;
+    /*if already maximized, ignore*/
+    if (w->state_mask & stt)
+        return;
 
-  cds = cello_get_current_desktop();
-  /*cannot maximize a window out of the current desktop*/
-  if (!dslist[cds] || w->d != cds)
-    return;
+    cds = cello_get_current_desktop();
+    /*cannot maximize a window out of the current desktop*/
+    if (!dslist[cds] || w->d != cds)
+        return;
 
-  /*unmap other windows before maximize*/
-    for
-      each_window_in_ds(cds) {
-        struct window *data = (struct window *)node->gdata;
-        if (data->id != w->id)
-          xcb_unmap_window(conn, data->id);
-      }
+    /*unmap other windows before maximize*/
+        for
+            each_window_in_ds(cds) {
+                struct window *data = (struct window *)node->gdata;
+                if (data->id != w->id)
+                    xcb_unmap_window(conn, data->id);
+            }
 
-    /*save the original geometry only if the window is at normal state*/
-    if (__HasMask__(w->state_mask, CELLO_STATE_NORMAL)) {
-      w->orig = w->geom;
-      w->tmp_state_mask = w->state_mask;
-    }
+        /*save the original geometry only if the window is at normal state*/
+        if (__HasMask__(w->state_mask, CELLO_STATE_NORMAL)) {
+            w->orig = w->geom;
+            w->tmp_state_mask = w->state_mask;
+        }
 
-    /*unset borders and make window moveable*/
-    __SwitchMask__(w->state_mask,
+        /*unset borders and make window moveable*/
+        __SwitchMask__(w->state_mask,
                    CELLO_STATE_BORDER | CELLO_STATE_MONOCLE |
                        CELLO_STATE_MAXIMIZE,
                    CELLO_STATE_NORMAL);
 
-    /*configure window before maximize*/
-    xcb_move_window(w, stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0,
-                    stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0);
+        /*configure window before maximize*/
+        xcb_move_window(w, stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0,
+                                        stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0);
 
-    xcb_resize_window(w,
-                      // resize the window with a gap, if stt is monocle
-                      root_screen->width_in_pixels -
-                          (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
-                      root_screen->height_in_pixels -
-                          (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0));
+        xcb_resize_window(w,
+                                            // resize the window with a gap, if stt is monocle
+                                            root_screen->width_in_pixels -
+                                                    (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
+                                            root_screen->height_in_pixels -
+                                                    (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0));
 
-    printf("Resizing with : %d,%d",
+        printf("Resizing with : %d,%d",
            root_screen->width_in_pixels -
                (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
            root_screen->height_in_pixels -
                (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0));
 
-    /*set maximized state*/
-    __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
+        /*set maximized state*/
+        __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
 
-    /*set wm state fullscreen*/
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
-                        XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
+        /*set wm state fullscreen*/
+        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
+                                                XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
 
-    /*update decoration*/
-    window_decorate(w);
+        /*update decoration*/
+        update_decoration(w);
 
-    move_to_head(&dslist[cello_get_current_desktop()], w->dlist);
+        move_to_head(&dslist[cello_get_current_desktop()], w->dlist);
 
-    xcb_flush(conn);
+        xcb_flush(conn);
 }

@@ -8,7 +8,7 @@ struct list {
     struct list * prev;
     struct list * next;
 
-    char * gdata;
+    unsigned char * gdata;
 };
 
 struct geometry {
@@ -19,7 +19,8 @@ struct geometry {
 };
 
 struct window {
-    xcb_drawable_t id;
+    xcb_window_t id;
+    xcb_window_t frame;
 
     /*window geometry*/
     struct geometry geom;

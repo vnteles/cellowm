@@ -14,6 +14,13 @@
 
 static struct window * focused;
 
+void xcb_set_root_def_attr() {
+    (void)xcb_change_window_attributes(
+        conn, root_screen->root, XCB_CW_EVENT_MASK,
+        (uint32_t[1]){ROOT_EVENT_MASK}
+);
+}
+
 #define each_screen ( ; it.rem; xcb_screen_next(&it) )
 xcb_screen_t * xcb_get_root_screen(xcb_connection_t * con, int scr) {
     xcb_screen_iterator_t it = xcb_setup_roots_iterator( xcb_get_setup(con) );
@@ -129,7 +136,7 @@ void xcb_move_focused_window(int16_t x, int16_t y) {
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     if (w->id == root_screen->root || !w) return;
     
-    // if (w->state_mask & CELLO_STATE_MAXIMIZE |CELLO_STATE_MONOCLE)
+    // if (w->state_mask & CELLO_STATE_MAXIMIZE | CELLO_STATE_MONOCLE)
     //     return;
 
     uint16_t mask = 0;
@@ -149,7 +156,7 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     // xcb_configure_window(conn, w->frame, mask,values);
     xcb_configure_window(conn, w->id, mask,values);
 
-    window_decorate(w);
+    update_decoration(w);
     xcb_flush(conn);
 }
 

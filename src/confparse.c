@@ -106,7 +106,7 @@ bool (*tok_handlers[])(struct token *) = {
     #undef xmacro
 };
 
-struct token getToken(jsmntok_t t[], char * jss, uint32_t i) {
+struct token get_token(jsmntok_t t[], char * jss, uint32_t i) {
     struct token tok;
 
     tok.tok_type = t[i+1].type;
@@ -135,7 +135,7 @@ struct token getToken(jsmntok_t t[], char * jss, uint32_t i) {
 
 void parse_json_config(void * vconfig_file) {
     /*don't know if i will definitely use JSON as config file*/
-    NLOG("{@} Reading the config file\n");
+    NLOG("Reading the config file");
 
     FILE * fp;
     char * config;
@@ -144,7 +144,11 @@ void parse_json_config(void * vconfig_file) {
     conf.config_ok = false;
 
     fp = fopen((char *)vconfig_file, "r");
-    if (!fp) { ELOG("{!} Config file not found"); return; }
+    // check if the file was moved or deleted after the access() check
+    if (!fp) { 
+        ELOG("parse_json_config Config file not found");
+        return;
+    }
 
     fseek(fp, 0, SEEK_END);
     config_size = ftell(fp);
@@ -153,7 +157,10 @@ void parse_json_config(void * vconfig_file) {
     config = umalloc(config_size * sizeof(char));
 
     uint32_t read = fread(config, sizeof(char), config_size, fp);
-    if (read != config_size) { ELOG("Could not properly read the configuration file\n"); return; }
+    if (read != config_size) { 
+        ELOG("Could not properly read the configuration file.\nLeaving the configuration phase"); 
+        return;
+    }
 
     fclose(fp);
 
@@ -165,15 +172,21 @@ void parse_json_config(void * vconfig_file) {
     jsmn_init(&p);
     int32_t size = jsmn_parse(&p, config, config_size, t, sizeof(t)/sizeof(*t));
 
-    if (size < 0) { ELOG("{!} Failed to parse the config: %d\n", size); return; }
-    if (!size || t[0].type != JSMN_OBJECT) { ELOG("{!} Invalid config file.\n") return; }
+    if (size < 0) { 
+        ELOG("Failed to parse the config: %d\n", size);
+        return;
+    }
+    if (!size || t[0].type != JSMN_OBJECT) {
+        ELOG("Invalid config file.\n");
+        return; 
+    }
 
     uint32_t i;
     for (i = 1; i < (uint32_t) size; i++) {
-        struct token tok = getToken(t, config, i);
+        struct token tok = get_token(t, config, i);
 
         if (tok.code < 0) {
-            ELOG("{!} Unknown option on config file: %s\n", tok.val);
+            ELOG("Unknown option on config file: %s\n", tok.val);
             return;
         }
 
@@ -188,6 +201,6 @@ void parse_json_config(void * vconfig_file) {
         i = i+1;
     }
 
-    NLOG("{@} Configuration OK\n");
+    NLOG("Configuration OK");
     conf.config_ok = true;
 }

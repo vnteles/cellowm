@@ -16,3 +16,4 @@ void ewmh_change_to_desktop(int scrno, uint32_t current);
 void ewmh_create_desktops(int scrno, uint32_t desktop_no);
 
 bool ewmh_is_special_window(xcb_window_t win);
+bool ewmh_check_strut(xcb_window_t wid);

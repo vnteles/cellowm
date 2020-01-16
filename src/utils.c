@@ -10,7 +10,7 @@ void * ucalloc(uint16_t qnt, uint16_t size);
 void * urealloc(void * ptr, uint16_t size);
 
 #define mem_error() \
-    { CRITICAL("{!} Unexpected Memory error\n"); }
+    { CRITICAL("{!} Unexpected Memory error"); }
 
 void * umalloc(uint16_t size) {
     void * ptr;

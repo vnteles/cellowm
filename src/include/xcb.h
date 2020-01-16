@@ -16,6 +16,8 @@
     XCB_EVENT_MASK_PROPERTY_CHANGE          |\
     XCB_EVENT_MASK_BUTTON_PRESS
 
+void xcb_set_root_def_attr();
+
 xcb_screen_t * xcb_get_root_screen(xcb_connection_t * con, int scr);
 void xcb_grab_buttons(xcb_window_t win);
 
