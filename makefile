@@ -1,8 +1,8 @@
-NAME=cellowm
+PROJ=cellowm
 CONN=celloc
 
 INCLUDE_PATH=./src/include
-C_SRC=$(shell find ./src -name "*.c" -type f)
+C_SRC=$(shell find ./src \( -name "*.c" ! -iname "celloc.c" \) -type f)
 H_SRC=$(shell find ./src/ -name "*.h" -type f)
 
 OBJ=$(subst .c,.o,$(subst src,obj,$(C_SRC)))
@@ -15,22 +15,26 @@ CC=gcc -std=c11
 CFLAGS+= -W -Wextra -Wall -I$(INCLUDE_PATH)
 LDADD+=`pkg-config --libs --cflags xcb xcb-cursor xcb-ewmh xcb-icccm xcb-keysyms xcb-shape` -lpthread
 
-all: obj_folder bin_dir $(NAME)
+all: obj_dir bin_dir $(PROJ) celloc
 
-
-$(NAME): $(OBJ)
-	@ echo 'Building binary using GCC linker: $@'
-	$(CC) -o $@ $^ $(CFLAGS) $(LDADD) $(UDEFINES)
+$(PROJ): $(OBJ)
+	@ echo 'Making $(PROJ)'
+	$(CC) -o ./bin/$@ $^ $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo -e 'Build finished!\n'
 
 ./obj/main.o: ./src/main.c $(H_SRC)
-	@ echo 'Building target using GCC compiler: $<'
+	@ echo 'Building $<'
 	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo ' '
 
 ./obj/%.o: ./src/%.c $(INCLUDE_PATH)/%.h
-	@ echo 'Building target using GCC compiler: $<'
+	@ echo 'Building $<'
 	$(CC) -c -o $@ $< $(CFLAGS) $(LDADD) $(UDEFINES)
+	@ echo ' '
+
+celloc: ./obj/celloc.o ./obj/list.o ./obj/utils.o
+	@ echo 'Making $<'
+	$(CC) -o ./bin/$@ $^ $(CFLAGS) $(LDADD) $(UDEFINES)
 	@ echo ' '
 
 
@@ -45,12 +49,19 @@ clean:
 	@ rmdir ./obj
 
 	@ echo 'Cleaning binaries..'
-	@ $(RM) "./bin/$(NAME)" "./bin/$(NAME)C"
+	@ $(RM) "./bin/$(PROJ)" "./bin/celloc"
 	@ rmdir ./bin
 
 	@ echo 'All clear!'
 
 install:
-	install -Dm 755 ./bin/$(NAME) $(PREFIX)/bin/$(NAME)
+	install -Dm 755 ./bin/$(PROJ) 	$(PREFIX)/bin/$(PROJ)
+	install -Dm 755 ./bin/celloc 	$(PREFIX)/bin/celloc
+	install -Dm 644 ./cello.desktop /usr/share/xsessions/cello.desktop
+
+uninstall:
+	$(RM) $(PREFIX)/bin/$(PROJ)
+	$(RM) $(PREFIX)/bin/celloc
+	$(RM) /usr/share/xsessions/cello.desktop
 
 .PHONY: all clean install

@@ -4,6 +4,7 @@ dev/
 obj/
 .vscode/
 test/
+bin/
 autom*
 build/
 
