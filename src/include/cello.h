@@ -10,6 +10,9 @@
 #define WMNAME "Cello"
 #define WMNAMELEN 5
 
+#define WMSOCKPATH "/tmp/cellowm-%s-%d.%d.sock"
+
+
 #define CONFIG_PATH "/.config/cellowm/config.json"
 #define CONFIG_PATH_LEN 28
 
@@ -22,14 +25,16 @@
 extern xcb_connection_t * conn;
 /*global root screen*/
 extern xcb_screen_t * root_screen;
+extern struct list * dslist[MAX_DESKTOPS];
 
 extern struct config conf;
+
+extern bool running;
 
 xcb_atom_t WM_DELETE_WINDOW;
 
 xcb_screen_t * get_screen(xcb_connection_t con, int scr);
 
-struct window * cello_find_window(xcb_drawable_t wid);
 struct window * window_configure_new(xcb_window_t win);
 
 void cello_add_window_to_desktop(struct window * w, uint32_t ds);
