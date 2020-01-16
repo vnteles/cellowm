@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=XSession
+Exec=/usr/bin/cellowm
+DesktopNames=Cello
+Name=Cello
+Comment=The Cello Window Manager
