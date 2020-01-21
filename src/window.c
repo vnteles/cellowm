@@ -11,14 +11,14 @@
 #include "log.h"
 
 
-struct list *wilist;
+struct window_list *wilist;
 
 struct window *find_window_by_id(xcb_drawable_t wid) {
     struct window *win;
-    struct list *list;
+    struct window_list *list;
 
     for (list = wilist; list; list = list->next) {
-        win = (struct window *)list->gdata;
+        win = (struct window *)list->window;
         if (win->id == wid) {
             return win;
         }
@@ -27,51 +27,66 @@ struct window *find_window_by_id(xcb_drawable_t wid) {
         return NULL;
 }
 
-static void fill_geometry(xcb_drawable_t wid, int16_t *x, int16_t *y,
-                          uint16_t *w, uint16_t *h, uint8_t *depth) {
-    xcb_get_geometry_cookie_t gcookie = xcb_get_geometry(conn, wid);
-    xcb_get_geometry_reply_t *geo;
+static struct geometry get_geometry(xcb_drawable_t wid) {
+    struct geometry geometry;
+    geometry.x = geometry.y = geometry.w = geometry.h = geometry.depth = 0;
 
-    if (!(geo = xcb_get_geometry_reply(conn, gcookie, NULL)))
-        return;
+    xcb_get_geometry_cookie_t geometry_cookie;
+    geometry_cookie = xcb_get_geometry(conn, wid);
 
-    *x = geo->x;
-    *y = geo->y;
-    *w = geo->width;
-    *h = geo->height;
-    *depth = geo->depth;
+    xcb_get_geometry_reply_t * geometry_reply;
+    if (!(geometry_reply = xcb_get_geometry_reply(conn, geometry_cookie, NULL)))
+        return geometry;
+
+    geometry.x = geometry_reply->x;
+    geometry.y = geometry_reply->y;
+    geometry.w = geometry_reply->width;
+    geometry.h = geometry_reply->height;
+    geometry.depth = geometry_reply->depth;
+
+    return geometry;
 }
 
 struct window *window_configure_new(xcb_window_t win) {
     struct window *w;
-    struct list *node;
+    struct window_list *node;
+
+    bool has_maximized = false;
+    uint32_t current_ds;
+
+    current_ds = cello_get_current_desktop();
 
     if (ewmh_is_special_window(win)) {
         xcb_map_window(conn, win);
         return NULL;
     }
 
-    w = umalloc(sizeof(struct window));
+    w = umalloc(sizeof(window));
 
+    if (!(dslist[current_ds]->window->state_mask | CELLO_STATE_NORMAL))
+        has_maximized = true;
     if (!(node = new_empty_node(&wilist)))
         return 0;
-    node->gdata = (unsigned char *)w;
+
+    if (has_maximized) {
+        move_to_head(&dslist[current_ds], dslist[current_ds]);
+    }
+
+    node->window = w;
 
     w->id = win;
 
     xcb_change_window_attributes_checked(
-            conn, w->id, XCB_CW_EVENT_MASK,
-            (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW});
+        conn, w->id, XCB_CW_EVENT_MASK,
+        (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW}
+    );
+
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, w->id);
 
     w->geom.x = w->geom.y = -1;
-    w->geom.w = w->geom.h = 0;
-    w->geom.depth = 0;
+    w->geom.w = w->geom.h = w->geom.depth = 0;
 
-    fill_geometry(
-        w->id, &w->geom.x, &w->geom.y, 
-        &w->geom.w, &w->geom.h, &w->geom.depth
-    );
+    w->geom = get_geometry(w->id);
 
     w->d = 0;
 
@@ -85,12 +100,8 @@ struct window *window_configure_new(xcb_window_t win) {
     w->state_mask |= conf.border ? CELLO_STATE_BORDER : 0;
 
     /*create the frame*/
-    // xcb_create_window(conn, XCB_COPY_FROM_PARENT, w->handlebar, w->id, w->geom.x,
-    //                                     w->geom.y, w->geom.w, w->geom.h, 0,
-    //                                     XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
-    //                                     XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
 
-    /*change the parent of the window*/
+    /*change the parent of the struct window*/
     // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
 
     xcb_flush(conn);
@@ -255,7 +266,7 @@ void window_hijack() {
 
     if (dslist[cello_get_current_desktop()])
         xcb_focus_window(
-                (struct window *)dslist[cello_get_current_desktop()]->gdata);
+                (struct window *)dslist[cello_get_current_desktop()]->window);
 
     NLOG("All windows hijacked.");
     xcb_flush(conn);
@@ -263,8 +274,35 @@ void window_hijack() {
 
 #define each_window_in_ds(ds) (node = dslist[ds]; node; node = node->next)
 
+struct window * nextprev_window(bool prev) {
+    struct window * focused;
+
+    struct window_list * wlhead = dslist[cello_get_current_desktop()];
+    focused = xcb_get_focused_window();
+
+    for (struct window_list * wl = wlhead; wl && wl->window; wl=wl->next) {
+        struct window * w = (struct window *) wl->window;
+
+        if (w->id == focused->id) {
+            if (prev) {
+                wl=wl->prev;
+            } else {
+                wl=wl->next;
+            }
+
+            if (wl && wl->window) {
+                w = (struct window *) wl->window;
+            }
+
+            return w;
+        }
+
+    }
+    return NULL;
+}
+
 void window_maximize(struct window *w, uint16_t stt) {
-    struct list *node;
+    struct window_list *node;
     uint32_t cds;
 
     if (!w)
@@ -281,7 +319,7 @@ void window_maximize(struct window *w, uint16_t stt) {
     /*unmap other windows before maximize*/
         for
             each_window_in_ds(cds) {
-                struct window *data = (struct window *)node->gdata;
+                struct window *data = (struct window *)node->window;
                 if (data->id != w->id)
                     xcb_unmap_window(conn, data->id);
             }
@@ -293,31 +331,28 @@ void window_maximize(struct window *w, uint16_t stt) {
         }
 
         /*unset borders and make window moveable*/
-        __SwitchMask__(w->state_mask,
-                   CELLO_STATE_BORDER | CELLO_STATE_MONOCLE |
-                       CELLO_STATE_MAXIMIZE,
-                   CELLO_STATE_NORMAL);
+        __SwitchMask__(w->state_mask, CELLO_STATE_BORDER | CELLO_STATE_FOCUS | CELLO_STATE_MAXIMIZE, CELLO_STATE_NORMAL);
 
         /*configure window before maximize*/
         xcb_move_window(
             w,
-            stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0,
-            stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0
+            stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0,
+            stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0
         );
 
         xcb_resize_window(
             w,
             root_screen->width_in_pixels -
-            (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0),
+            (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0),
             root_screen->height_in_pixels -
-            (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0)
+            (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0)
         );
 
         printf("Resizing with : %d,%d",
            root_screen->width_in_pixels -
-               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0) * 2,
+               (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2,
            root_screen->height_in_pixels -
-               (stt & CELLO_STATE_MONOCLE ? conf.monocle_gap : 0) * 2);
+               (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2);
 
         /*set maximized state*/
         __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);

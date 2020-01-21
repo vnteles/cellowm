@@ -2,4 +2,4 @@
 
 #define MAX_DESKTOPS 10
 
-extern struct list * dslist[MAX_DESKTOPS];
+extern struct window_list * dslist[MAX_DESKTOPS];

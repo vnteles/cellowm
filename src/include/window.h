@@ -5,10 +5,10 @@
 /**
  ** the global window list
  **/
-extern struct list * wilist;
+extern struct window_list * wilist;
 
 /*get the window from node*/
-#define __Node2Window__(n, w) w = (struct window *) n->gdata
+#define __Node2Window__(n, w) w = (struct window *) n->window
 
 /**
  ** @brief find a window from the client list by passing an id
@@ -39,6 +39,16 @@ void center_window_y(struct window * w);
  ** @brief handle all windows already mapped when the connection was created
  **/
 void window_hijack();
+
+/**
+ ** @brief get the next or the previous window from the focused one
+ ** @param prev if true, get the previous window, the next if false
+ ** @return a window
+ **/
+struct window * nextprev_window(bool prev);
+
+#define prev_window() nextprev_window(true)
+#define next_window() nextprev_window(false)
 
 /**
  ** @brief update the window decoration

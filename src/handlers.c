@@ -20,78 +20,20 @@
 #include "list.h"
 #include "log.h"
 #include "xcb.h"
+#include "message.h"
 
 #include "events.h"
 
+/**
+ ** @brief handle the given event with the event list
+ ** @param e the event to be handled
+ **/
 void handle_event(xcb_generic_event_t* e) {
     const uint8_t event_len = sizeof(events) / sizeof(*events);
     if ((e->response_type) < event_len && events[e->response_type & 0x7F]) {
         events[e->response_type & 0x7F](e);
         xcb_flush(conn);
     }
-}
-
-#define comp_str(opt, str) ( strcmp(opt, str) == 0 )
-
-/**
- ** @brief find the given argument in the argument list.
- ** @param arg the argument that you're looking for.
- ** @param argc the length of the argument list.
- ** @param argv the argument list.
- ** @return the position of the argument in the argument list, or -1 if unsuccessfully
- **/
-int find_arg(char * arg, int argc, char ** argv) {
-    for (int i = 0; i < argc; i++)
-        if comp_str(argv[i], arg) return i;
-    return -1;
-}
-
-/**
- ** @brief get the value of the given argument.
- ** @param arg the argument you're looking for.
- ** @param argc the length of the argument list.
- ** @param argv the argument list.
- ** @return a pointer to the value on the argument list, or null if unsuccessfully
- **/
-char * get_arg_val(char * arg, int argc, char ** argv) {
-    int i = find_arg(arg, argc, argv);
-    return i > -1 && i < argc-1 ?  argv[i+1] : NULL;
-}
-
-/**
- ** @brief parse the wm option
- ** @param opts a list with the options
- ** @param opts_len the length of the list
- **/
-static void parse_wm(char ** opts, int opts_len) {
-#define find_opt(opt) (find_arg(opt, opts_len, opts) > -1)
-    if find_opt("exit") {
-        running = false;
-        return;
-    }
-    if find_opt("reload") {
-        DLOG("Reloading");
-        return;
-    }
-    if find_opt("hijack") {
-        DLOG("Hijacking")
-        return;
-    }
-#undef find_opt
-}
-
-static void parse_opts(int argc, char ** argv) {
-    if (comp_str(argv[0], "wm")) {
-        parse_wm(++argv, argc);
-    }
-    else if (comp_str(argv[0], "window")) {
-        parse_wm(++argv, argc);
-    }
-
-    else {
-        DLOG("Unknown option: %s", argv[0]);
-    }
-
 }
 
 void handle_message(char * msg, int msg_len, int fd) {
@@ -103,20 +45,19 @@ void handle_message(char * msg, int msg_len, int fd) {
     argv = umalloc(sizeof(char *) * j);
 
     for (int i = 0; i < msg_len; i++) {
-        if (msg[i] == 0 && msg) {
+        int len = strlen(msg+i);
+        argv[argc] = umalloc(len);
 
-            if (j == argc) {
-                j *= 2;
-                urealloc(argv, sizeof(char *) * j);
-            }
+        strcpy(argv[argc++], msg+i);
+        // puts(argv[argc-1]);
+        i+= len;
 
-            argv[argc] = umalloc(strlen(msg));
-            strcpy(argv[argc++], msg);
-            msg+=i+1;
+        if (argc == j) {
+            j *= 2;
+            urealloc(argv, sizeof(char *) * j);
         }
     }
-
-    // parse the options
+    argv[argc] = NULL;
     parse_opts(argc, argv);
 }
 
@@ -217,10 +158,10 @@ void TOGGLE_MONOCLE(const union param* param __attribute__((unused))) {
     focused = xcb_get_focused_window();
     if (!focused) return;
     /*already maximized*/
-    if (focused->state_mask & CELLO_STATE_MONOCLE)
+    if (focused->state_mask & CELLO_STATE_FOCUS)
         cello_unmaximize_window(focused);
     else
-        window_maximize(focused, CELLO_STATE_MONOCLE);
+        window_maximize(focused, CELLO_STATE_FOCUS);
 }
 
 void CHANGE_DESKTOP(const union param* param) { cello_goto_desktop(param->i); }
@@ -253,7 +194,7 @@ void MOUSE_MOTION(const union param * param) {
     if (query_reply == NULL)
         return;
 
-    /* get the target window */
+    /* get the target struct window */
     struct window * target;
     target = find_window_by_id(query_reply->child);
 
@@ -317,6 +258,8 @@ void MOUSE_MOTION(const union param * param) {
     int16_t 
         px = query_reply->root_x, 
         py = query_reply->root_y;
+
+    xcb_raise_window(target->id);
 
     bool motion = true;
     for (;motion;) {

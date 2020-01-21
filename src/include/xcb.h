@@ -24,11 +24,17 @@ void xcb_grab_buttons(xcb_window_t win);
 void xcb_unfocus();
 void xcb_focus_on_pointer();
 void xcb_focus_window(struct window * w);
+void xcb_focus_prevnext(bool prev);
+
+#define xcb_focus_prev() xcb_focus_prevnext(true);
+#define xcb_focus_next() xcb_focus_prevnext(false);
 
 struct window * xcb_get_focused_window();
 
 void xcb_raise_window(xcb_window_t win);
 void xcb_raise_focused_window();
+
+void xcb_change_window_ds(struct window * w, uint32_t ds);
 
 void xcb_move_window(struct window * w, int16_t x, int16_t y);
 void xcb_move_focused_window(int16_t x, int16_t y);

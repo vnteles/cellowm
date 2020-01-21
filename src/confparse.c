@@ -17,7 +17,7 @@
 #define _border 4
 #define _keys 5
 #define _buttons 6
-#define _monocle_gap 7
+#define _focus_gap 7
 
 #define uknw -1
 
@@ -82,9 +82,9 @@ static bool set_border(struct token * tok){
     return false;
 }
 
-static bool set_monocle_gap(struct token * tok) {
+static bool set_focus_gap(struct token * tok) {
     if (tok->tok_type == JSMN_PRIMITIVE && isnum(tok->val)){
-        conf.monocle_gap = atoi(tok->val);
+        conf.focus_gap = atoi(tok->val);
         return true;
     }
     return false;
@@ -122,8 +122,8 @@ struct token get_token(jsmntok_t t[], char * jss, uint32_t i) {
         tok.code = _outer_border_color;
     } else if (comp("border")) {
         tok.code = _border;
-    } else if (comp("monocle_gap")) {
-        tok.code = _monocle_gap;
+    } else if (comp("focus_gap")) {
+        tok.code = _focus_gap;
     } else {
         // free(tok.val);
         tok.val = copy(i);

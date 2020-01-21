@@ -71,26 +71,59 @@ void xcb_focus_on_pointer() {
 
 void xcb_focus_window(struct window * w) {
     /*if for some reason win be null*/
-    if (!w) xcb_focus_on_pointer();
-    else if (w->id == root_screen->root)    return;
-    else {
-        xcb_change_property(
-            conn, XCB_PROP_MODE_REPLACE, w->id,
-            ewmh->_NET_WM_STATE, ewmh->_NET_WM_STATE,
-            0x20, 2, (uint32_t[]){ XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE }
-        );
-        xcb_set_input_focus(
-            conn, XCB_INPUT_FOCUS_POINTER_ROOT,
-            w->id, XCB_CURRENT_TIME
-        );
-        xcb_change_property(
-            conn, XCB_PROP_MODE_REPLACE, root_screen->root,
-            ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, 0x20, 1, &w->id
-        );
+    if (!w) {
+        xcb_focus_on_pointer();
+        return;
+    }
 
-        xcb_grab_buttons(w->id);
-        focused = w;
-        xcb_flush(conn);
+    if (w->id == root_screen->root) {
+        return;
+    }
+
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE, w->id,
+        ewmh->_NET_WM_STATE, ewmh->_NET_WM_STATE,
+        0x20, 2, (uint32_t[]){ XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE }
+    );
+    xcb_set_input_focus(
+        conn, XCB_INPUT_FOCUS_POINTER_ROOT,
+        w->id, XCB_CURRENT_TIME
+    );
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE, root_screen->root,
+        ewmh->_NET_ACTIVE_WINDOW, XCB_ATOM_WINDOW, 0x20, 1, &w->id
+    );
+
+    xcb_grab_buttons(w->id);
+
+    focused = w;
+    xcb_flush(conn);
+}
+
+void xcb_focus_prevnext(bool prev) {
+    uint32_t current_ds = cello_get_current_desktop();
+
+    struct window_list * wlhead = dslist[current_ds];
+
+    for (struct window_list * wl = wlhead; wl && wl->window; wl=wl->next) {
+        struct window * w = (struct window *) wl->window;
+
+        if (w->id == focused->id) {
+            if (prev) {
+                wl=wl->prev;
+            } else {
+                wl=wl->next;
+            }
+
+            if (wl && wl->window) {
+                w = (struct window *) wl->window;
+            }
+
+            xcb_raise_window(w->id);
+            xcb_focus_window(w);
+            break;
+        }
+
     }
 }
 
@@ -108,11 +141,22 @@ void xcb_raise_focused_window() {
     xcb_raise_window(focused->id);
 }
 
+void xcb_change_window_ds(struct window * w, uint32_t ds) {
+    if (!w || w->d == ds) return;
+    if (ds > MAX_DESKTOPS) return;
+
+
+    cello_unmap_win_from_desktop(w);
+    cello_add_window_to_desktop(w, ds);
+
+    xcb_unfocus();
+}
+
 void xcb_move_window(struct window * w, int16_t x, int16_t y){
     if (!w || w->id == root_screen->root) return;
     /*don't move maximized windows*/
-    // if (!(w->state_mask & CELLO_STATE_NORMAL))
-    //     return;
+    if (!(w->state_mask & CELLO_STATE_NORMAL))
+        return;
 
     w->geom.x = x;
     w->geom.y = y;
@@ -136,7 +180,7 @@ void xcb_move_focused_window(int16_t x, int16_t y) {
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     if (w->id == root_screen->root || !w) return;
     
-    // if (w->state_mask & CELLO_STATE_MAXIMIZE | CELLO_STATE_MONOCLE)
+    // if (w->state_mask & CELLO_STATE_MAXIMIZE | CELLO_STATE_FOCUS)
     //     return;
 
     uint16_t mask = 0;

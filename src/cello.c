@@ -27,22 +27,21 @@
 xcb_connection_t *conn = NULL;
 xcb_screen_t *root_screen = NULL;
 
-bool running;
+bool run;
 
-struct list *dslist[MAX_DESKTOPS];
+struct window_list *dslist[MAX_DESKTOPS];
 
 static int sockfd, connfd;
 char wmsockp[256];
 
 struct config conf;
-FILE *logfp;
 
 static uint32_t current_ds = 0;
 
 static int cello_setup_conn() {
     NLOG("Setting up the %s connection\n", WMNAME);
 
-    int scrno;
+    int scrno = -1;
 
     conn = xcb_connect(NULL, &scrno);
 
@@ -63,8 +62,6 @@ static int cello_setup_conn() {
             CRITICAL("Could not get the socket path");
 
     strncpy(wmsockp, addr.sun_path, sizeof wmsockp);
-
-
 
     if (host)
         ufree(host);
@@ -91,11 +88,11 @@ static int cello_setup_conn() {
 void cello_clean() {
     DLOG("Cleaning up..");
     if (wilist) {
-        struct list *node;
+        struct window_list *node;
 
         for (node = wilist; node; node = node->next) {
 
-            struct window *w = (struct window *)node->gdata;
+            struct window *w = (struct window *)node->window;
             xcb_unmap_window(conn, w->id);
             free_node(&wilist, node);
         }
@@ -110,6 +107,8 @@ void cello_clean() {
         xcb_flush(conn);
         xcb_disconnect(conn);
     }
+
+    unlink(wmsockp);
     conn = NULL;
 
 
@@ -150,12 +149,12 @@ void cello_add_window_to_desktop(struct window *w, uint32_t ds) {
     if (!w)
         return;
 
-    struct list *node;
+    struct window_list *node;
     if (!(node = new_empty_node(&dslist[ds])))
         return;
     w->dlist = node;
     w->d = ds;
-    node->gdata = (unsigned char *)w;
+    node->window = w;
 
     // change window desktop in ewmh
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_DESKTOP,
@@ -166,8 +165,8 @@ void cello_add_window_to_desktop(struct window *w, uint32_t ds) {
         uint32_t c = cello_get_current_desktop();
         struct window *fw = NULL;
 
-        if (dslist[c] && dslist[c]->gdata)
-            fw = (struct window *)dslist[c]->gdata;
+        if (dslist[c] && dslist[c]->window)
+            fw = (struct window *)dslist[c]->window;
 
         if (w->d != c || (fw && !(fw->state_mask & CELLO_STATE_NORMAL))) {
             xcb_unmap_window(conn, w->id);
@@ -183,68 +182,8 @@ void cello_add_window_to_current_desktop(struct window *w) {
     cello_add_window_to_desktop(w, cello_get_current_desktop());
 }
 
-#define each_window_in_ds(ds) (node = dslist[ds]; node; node = node->next)
 
-// window
-
-// window
-// deprecated
-void cello_monocle_window(struct window *w) {
-    if (!w)
-        return;
-    if (w->state_mask & CELLO_STATE_MONOCLE)
-        return;
-
-    struct list *node;
-    uint32_t current;
-
-    current = cello_get_current_desktop();
-    /*cannot maximize a window out of the current desktop*/
-    if (!dslist[current] || w->d != current)
-        return;
-
-    /*unmap other windows before maximize*/
-        for each_window_in_ds(current) {
-                struct window *data = (struct window *)node->gdata;
-                if (data->id != w->id) {
-                    xcb_unmap_window(conn, data->id);
-                    // xcb_unmap_window(conn, data->frame);
-                }
-            }
-
-        /*save the original geometry and state*/
-        if (!(w->state_mask & CELLO_STATE_MAXIMIZE)) {
-            __AddMask__(w->tmp_state_mask, w->state_mask);
-            w->orig = w->geom;
-        }
-
-        w->geom.w = root_screen->width_in_pixels;
-        w->geom.h = root_screen->height_in_pixels;
-
-        if (root_screen->width_in_pixels > conf.monocle_gap)
-            w->geom.w -= conf.monocle_gap;
-        if (root_screen->height_in_pixels > conf.monocle_gap)
-            w->geom.h -= conf.monocle_gap;
-
-        uint32_t smask = w->state_mask;
-
-        __SwitchMask__(w->state_mask, CELLO_STATE_BORDER | CELLO_STATE_MAXIMIZE,
-                   CELLO_STATE_NORMAL);
-
-        center_window(w);
-        xcb_resize_window(w, w->geom.w, w->geom.h);
-        w->state_mask = smask;
-
-        /*set maximized state*/
-        __SwitchMask__(w->state_mask, CELLO_STATE_MAXIMIZE, CELLO_STATE_MONOCLE);
-
-        move_to_head(&dslist[cello_get_current_desktop()], w->dlist);
-        xcb_flush(conn);
-}
-
-#undef each_window_in_ds
-
-#define get(w, l) w = (struct window *)l->gdata
+#define get(w, l) w = (struct window *)l->window
 #define get_and_map(w, l)                                                      \
     get(w, l); xcb_map_window(conn, w->id);
 #define get_and_unmap(w, l)                                                    \
@@ -257,10 +196,12 @@ void cello_unmaximize_window(struct window *w) {
 
     uint32_t current;
     struct window *win;
-    struct list *aux;
+    struct window_list *aux;
 
     /*reconfigure the state*/
-    __RemoveMask__(w->state_mask, CELLO_STATE_MAXIMIZE | CELLO_STATE_MONOCLE);
+    __RemoveMask__(w->state_mask, CELLO_STATE_MAXIMIZE);
+    __RemoveMask__(w->state_mask, CELLO_STATE_FOCUS);
+
     /*revert to the original mask values*/
     __AddMask__(w->state_mask, w->tmp_state_mask);
     w->tmp_state_mask = 0;
@@ -269,8 +210,10 @@ void cello_unmaximize_window(struct window *w) {
     xcb_move_window(w, w->geom.x, w->geom.y);
     xcb_resize_window(w, w->geom.w, w->geom.h);
 
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
-                                            XCB_ATOM_ATOM, 32, 0, NULL);
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
+        XCB_ATOM_ATOM, 32, 0, NULL
+    );
 
     current = cello_get_current_desktop();
     /*and map all windows*/
@@ -293,7 +236,7 @@ void cello_goto_desktop(uint32_t d) {
         return;
 
     struct window *w;
-    struct list *aux;
+    struct window_list *aux;
 
     /*unmap all windows from the old desktop*/
     for (aux = dslist[current]; aux; aux = aux->next) {
@@ -305,11 +248,11 @@ void cello_goto_desktop(uint32_t d) {
         get_and_map(w, aux);
 
         /*check if there are some maximized window
-     *(maximized/monocle windows are supposed to be always at the first
+     *(maximized/focus windows are supposed to be always at the first
      *position)
      */
         if (w->state_mask & CELLO_STATE_MAXIMIZE ||
-                w->state_mask & CELLO_STATE_MONOCLE)
+                w->state_mask & CELLO_STATE_FOCUS)
             goto end_map;
         /*continue mapping the windows*/
         else
@@ -401,10 +344,10 @@ void cello_unmap_window(struct window *w) {
 #define each_window (window = wilist; window; window = window->next)
 // xcb
 void cello_destroy_window(struct window *w) {
-    struct list *window;
+    struct window_list *window;
         for
             each_window {
-                struct window *win = (struct window *)window->gdata;
+                struct window *win = (struct window *)window->window;
                 if (win->id == w->id) {
                     cello_unmap_window(w);
                     return;
@@ -504,8 +447,8 @@ void cello_reload() {
 
     cello_clean();
 
-    if (cello_setup_all())
-        cello_deploy();
+    cello_setup_all();
+    cello_deploy();
 #else
 
     cello_clean();
@@ -515,33 +458,35 @@ void cello_reload() {
 #endif
 }
 
-bool cello_setup_all() {
-    pthread_t config_thread;
-    char *config_file;
-    bool config_open;
+void cello_setup_all() {
+    NLOG("Initializing "WMNAME"\n");
+
+    // pthread_t config_thread;
+    // char *config_file;
+    // bool config_open;
 
     int scr;
     current_ds = 0;
 
-    NLOG("Initializing %s\n", WMNAME);
     atexit(cello_exit);
 
-    config_file = NULL;
-    /*get the file status*/
-    config_open = cello_read_config_file(&config_thread, config_file);
+    // config_file = NULL;
+    // /*get the file status*/
+    // config_open = cello_read_config_file(&config_thread, config_file);
 
     if ((scr = cello_setup_conn()) < 0)
-        return false;
+        CRITICAL("cello_setup_conn: Could not setup the connection");
 
     if (!(root_screen = xcb_get_root_screen(conn, scr))) {
-        ELOG("cello_setup_all: Setup failed");
-        return false;
+        CRITICAL("cello_setup_all: Setup failed");
     }
 
     NLOG("Screen dimensions %dx%d\n", root_screen->width_in_pixels,
        root_screen->height_in_pixels);
     
     init_events();
+
+    conf.focus_gap = 32;
 
     ewmh_init(conn);
     cello_init_atoms();
@@ -559,26 +504,23 @@ bool cello_setup_all() {
     cello_setup_cursor();
 
     // wait for the configuration before setup the windows
-    if (config_open) {
-        pthread_join(config_thread, NULL);
-        ufree(config_file);
-    }
+    // if (config_open) {
+    //     pthread_join(config_thread, NULL);
+    //     ufree(config_file);
+    // }
 
-    // ignore all events while the wm is starting
     xcb_grab_server(conn);
     xcb_generic_event_t *event;
     // handle all events before hijack the windows
     while ((event = xcb_poll_for_event(conn)) != NULL) {
         if (event->response_type == 0) {
-            // prevent possible errors caused by memory corruption or something related 
-            if (event)
-                ufree(event);
+            ufree(event);
             continue;
         }
 
-        int type = (event->response_type & 0x7F);
+        int event_type = (event->response_type & 0x7F);
 
-        if (type == XCB_MAP_REQUEST)
+        if (event_type == XCB_MAP_REQUEST)
             handle_event(event);
 
         if (event)
@@ -589,25 +531,24 @@ bool cello_setup_all() {
     xcb_ungrab_server(conn);
 
     NLOG("Setup completed!");
-    return true;
 }
 
 void cello_deploy() {
     NLOG("Deploying "WMNAME);
 
-    running = true;
     fd_set rfds;
 
     xcb_generic_event_t * event;
 
-    while (running) {
+    run = true;
+    while (run) {
         xcb_flush(conn);
         
         FD_ZERO(&rfds);
         FD_SET(sockfd, &rfds);
         FD_SET(connfd, &rfds);
 
-        // get the fd ready
+        // check which fd is ready
         if (select(max(sockfd, connfd) + 1, &rfds, NULL, NULL, NULL) == -1) continue;
         
         if (FD_ISSET(connfd, &rfds) != 0) {
@@ -644,7 +585,7 @@ void cello_deploy() {
         }
 
         if (xcb_connection_has_error(conn))
-            running = false;
+            run = false;
     }
     // handle_events();
     exit(EXIT_SUCCESS);

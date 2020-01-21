@@ -2,18 +2,18 @@
 #include "types.h"
 #include "log.h"
 
-struct list ** new_empty_list(uint8_t size) {
-    return ( struct list ** ) umalloc(size * sizeof(struct list *));
+struct window_list ** new_empty_list(uint8_t size) {
+    return ( struct window_list ** ) umalloc(size * sizeof(struct window_list *));
 }
 
-struct list * new_empty_node(struct list ** list) {
-    struct list * node;
+struct window_list * new_empty_node(struct window_list ** list) {
+    struct window_list * node;
 
     if (!list) return NULL;
 
     // NLOG("{$} Creating a new empty node for the list at %p\n", list);
 
-    node = umalloc(sizeof(struct list));
+    node = umalloc(sizeof(struct window_list));
 
     if (!(*list)) node->prev = node->next = NULL;
     else {
@@ -26,10 +26,10 @@ struct list * new_empty_node(struct list ** list) {
     return node;
 }
 
-void move_to_head(struct list ** list, struct list * node){
+void move_to_head(struct window_list ** list, struct window_list * node){
     if (!node || !list || !*list) return;
 
-    struct list * aux = *list;
+    struct window_list * aux = *list;
 
     // already on head
     if (node == aux) return;
@@ -46,10 +46,10 @@ void move_to_head(struct list ** list, struct list * node){
     }
 }
 
-void pop_node(struct list ** list, struct list * node) {
+void pop_node(struct window_list ** list, struct window_list * node) {
     if (!node || !list || !*list) return;
 
-    struct list * aux = *list;
+    struct window_list * aux = *list;
 
     if (node == aux){
         *list = node->next;
@@ -64,25 +64,10 @@ void pop_node(struct list ** list, struct list * node) {
     ufree(node);
 }
 
-void free_node(struct list ** list, struct list * node) {
+void free_node(struct window_list ** list, struct window_list * node) {
     if (!node || !list || !*list) return;
-    if (node->gdata)
-        ufree(node->gdata);
-    node->gdata = NULL;
+    if (node->window)
+        ufree(node->window);
+    node->window = NULL;
     pop_node(list, node);
-}
-
-void free_list(struct list ** list) {
-    struct list *node;
-    
-    for (node = *list; node != NULL; node = node->next){
-        free_node(list, node);
-    }
-
-}
-
-void list_all(struct list * list) {
-    struct list * node;
-    unsigned int i;
-    for (node = list, i = 1; node; node=node->next, i++) printf("node #%d at %p\n", i, (void *)node);
 }

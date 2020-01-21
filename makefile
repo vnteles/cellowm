@@ -13,7 +13,7 @@ RM=rm -f
 
 CC=gcc -std=c11
 CFLAGS+= -W -Wextra -Wall -I$(INCLUDE_PATH)
-LDADD+=`pkg-config --libs --cflags xcb xcb-cursor xcb-ewmh xcb-icccm xcb-keysyms xcb-shape` -lpthread
+LDADD+=-lxcb -lxcb-cursor -lxcb-ewmh -lxcb-icccm -lxcb-keysyms -lxcb-shape -lpthread
 
 all: obj_dir bin_dir $(PROJ) celloc
 

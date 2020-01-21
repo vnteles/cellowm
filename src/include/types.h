@@ -4,12 +4,9 @@
 #include <xcb/xcb_keysyms.h>
 #include "utils.h"
 
-struct list {
-    struct list * prev;
-    struct list * next;
 
-    unsigned char * gdata;
-};
+struct window_list;
+struct window window;
 
 struct geometry {
     int16_t x, y;
@@ -29,7 +26,7 @@ struct window {
 
     xcb_drawable_t handlebar;
 
-    /*store the state of the current window*/
+    /*store the state of the current struct window*/
     uint32_t state_mask;
     /*temporary state mask*/
     uint32_t tmp_state_mask;
@@ -38,10 +35,18 @@ struct window {
     uint32_t d;
 
     /*desktop list*/
-    struct list * dlist;
+    struct window_list * dlist;
 
     /*window list*/
-    struct list * wlist;
+    struct window_list * wlist;
+};
+
+
+struct window_list {
+    struct window_list * prev;
+    struct window_list * next;
+
+    struct window * window;
 };
 
 union param {
@@ -80,7 +85,7 @@ struct config {
     struct key * keys;
     struct button * buttons;
 
-    uint32_t monocle_gap;
+    uint32_t focus_gap;
 
     uint8_t config_ok;
 };
