@@ -18,6 +18,6 @@ void CENTER_WINDOW(const union action param);
 void RELOAD_CONFIG(const union action param);
 void TOGGLE_BORDER(const union action param);
 void TOGGLE_MAXIMIZE(const union action param);
-void TOGGLE_MONOCLE(const union action param);
+void TOGGLE_FOCUS_MODE(const union action param);
 void CHANGE_DESKTOP(const union action param);
 void MOVE_WINDOW_TO_DESKTOP(const union action param);
