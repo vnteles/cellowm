@@ -29,14 +29,6 @@ command(print, "scrot");
 
 /*these ifndef are just for files that include config.h but dont use these configuration*/
 #ifndef NO_BUTTONS
-
-static struct button buttons[] = {
-    /* { button, modifier, function, window modifier, param [ config / command ]  */
-    { XCB_BUTTON_INDEX_1,  MOD,           MOUSE_MOTION,    NO_ROOT,          {.i = MOVE_WINDOW}      },
-    { XCB_BUTTON_INDEX_3,  MOD,           RUN         ,    ROOT_ONLY,        {.com = context_menu}   },
-    { XCB_BUTTON_INDEX_3,  MOD,           MOUSE_MOTION,    NO_ROOT,          {.i = RESIZE_WINDOW}    },
-};
-
 #endif
 
 #ifndef NO_KEYS
