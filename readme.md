@@ -3,7 +3,7 @@
 
 ## Description
 Cello is a floating window manager for X11.
-It uses a client called celloc that uses a socket to comunicate with the wm, allowing to write your own softwares to communicate with the wm not dependent on celloc (such as voice assistents).
+It uses a client called celloc to comunicate with the wm, using a socket, allowing to write your own softwares to communicate with the wm not dependent on celloc (such as voice assistents).
 
 ### important: this project is under development, not recommended to use it as your main window manager
 
