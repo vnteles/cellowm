@@ -60,8 +60,6 @@ static struct key keys[] = {
     //center window on y axis
     { XK_y,                MOD,           CENTER_WINDOW,   NO_ROOT,          {.i = Y}              },
 
-    {XK_Print,             NONE,          RUN,             NONE,             {.com = print}        },
-
     {XK_b,                 MOD,           TOGGLE_BORDER,   NO_ROOT,          {}                    },
     {XK_f,                 MOD,           TOGGLE_MAXIMIZE, NO_ROOT,          {}                    },
     {XK_m,                 MOD,           TOGGLE_MONOCLE,  NO_ROOT,          {}                    },
