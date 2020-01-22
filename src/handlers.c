@@ -127,7 +127,7 @@ void TOGGLE_MAXIMIZE(const union action param __attribute((unused))) {
         window_maximize(focused, CELLO_STATE_MAXIMIZE);
 }
 
-void TOGGLE_MONOCLE(const union action param __attribute__((unused))) {
+void TOGGLE_FOCUS_MODE(const union action param __attribute__((unused))) {
     struct window* focused;
     focused = xcb_get_focused_window();
     if (!focused) return;

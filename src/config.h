@@ -62,7 +62,7 @@ static struct key keys[] = {
 
     {XK_b,                 MOD,           TOGGLE_BORDER,   NO_ROOT,          {}                    },
     {XK_f,                 MOD,           TOGGLE_MAXIMIZE, NO_ROOT,          {}                    },
-    {XK_m,                 MOD,           TOGGLE_MONOCLE,  NO_ROOT,          {}                    },
+    {XK_m,                 MOD,           TOGGLE_FOCUS_MODE,  NO_ROOT,          {}                    },
 
     CHANGEDESKTOP(1, 0),
     CHANGEDESKTOP(2, 1),
