@@ -83,11 +83,11 @@ static void on_configure_request(xcb_generic_event_t * event) {
     uint16_t mask = 0;
     uint8_t i = 0;
 
-#define CLONE_MASK(MASK, CONFIG) \
-    if (e->value_mask & MASK) {    \
-        mask |= MASK;                \
-        values[i++] = e->CONFIG;     \
-    }
+    #define CLONE_MASK(MASK, CONFIG) \
+        if (e->value_mask & MASK) {      \
+            mask |= MASK;                \
+            values[i++] = e->CONFIG;     \
+        }
 
     CLONE_MASK(XCB_CONFIG_WINDOW_X, x);
     CLONE_MASK(XCB_CONFIG_WINDOW_Y, y);
@@ -97,17 +97,16 @@ static void on_configure_request(xcb_generic_event_t * event) {
     CLONE_MASK(XCB_CONFIG_WINDOW_SIBLING, sibling);
     CLONE_MASK(XCB_CONFIG_WINDOW_STACK_MODE, stack_mode);
 
-#undef CLONE_MASK
-    DLOG("Window 0x%08x configured with geometry %dx%d at [%d, %d]",
-       e->window, e->width, e->height, e->x, e->y);
+    #undef CLONE_MASK
 
     xcb_configure_window(conn, e->window, mask, values);
+
+    /* DLOG("Window 0x%08x configured with geometry %dx%d at [%d, %d]",
+       e->window, e->width, e->height, e->x, e->y) */;
     xcb_flush(conn);
 }
 
 static void on_destroy_notify(xcb_generic_event_t * event) {
-    // EFN(on_destroy_notify);
-
     xcb_destroy_notify_event_t* e = (xcb_destroy_notify_event_t*)event;
     VARDUMP(e->window);
 
@@ -118,12 +117,10 @@ static void on_destroy_notify(xcb_generic_event_t * event) {
 }
 
 static void on_map_request(xcb_generic_event_t * event) {
-    // EFN(on_map_request);
-
     xcb_map_request_event_t* e = (xcb_map_request_event_t*)event;
     struct window* win;
-    // skip if windows in another desktop
-    if (find_window_by_id(e->window)) return;
+    // skip windows in another desktop
+    if (find_window_by_id(e->window) != NULL) return;
 
     // configure window
     if (!(win = window_configure_new(e->window))) return;
@@ -156,16 +153,32 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
     }
 }
 
+static void on_client_message(xcb_generic_event_t * event) {
+    xcb_client_message_event_t * e = (xcb_client_message_event_t *) event;
+
+    // change the desktop message
+    if (e->type == ewmh->_NET_CURRENT_DESKTOP) {
+        cello_goto_desktop(e->data.data32[0]);
+    }
+    if (e->type == ewmh->_NET_ACTIVE_WINDOW) {
+        struct window * w = find_window_by_id(e->window);
+        if (!w) return;
+
+        xcb_focus_window(w);
+    }
+}
+
 void (*events[0x7f])(xcb_generic_event_t *);
 
 void init_events() {
-    events[XCB_KEY_PRESS]           = on_key_press;
-    events[XCB_BUTTON_PRESS]        = on_button_press;
-    events[XCB_ENTER_NOTIFY]        = on_enter_notify;
-    events[XCB_CONFIGURE_NOTIFY]    = on_configure_notify;
-    events[XCB_CONFIGURE_REQUEST]   = on_configure_request;
-    events[XCB_DESTROY_NOTIFY]      = on_destroy_notify;
-    events[XCB_MAP_REQUEST]         = on_map_request;
-    events[XCB_PROPERTY_NOTIFY]     = on_property_notify;
-    events[XCB_UNMAP_NOTIFY]        = on_unmap_notify;
+    events[XCB_KEY_PRESS]              =      on_key_press;
+    events[XCB_BUTTON_PRESS]           =      on_button_press;
+    events[XCB_ENTER_NOTIFY]           =      on_enter_notify;
+    events[XCB_CONFIGURE_NOTIFY]       =      on_configure_notify;
+    events[XCB_CONFIGURE_REQUEST]      =      on_configure_request;
+    events[XCB_DESTROY_NOTIFY]         =      on_destroy_notify;
+    events[XCB_MAP_REQUEST]            =      on_map_request;
+    events[XCB_PROPERTY_NOTIFY]        =      on_property_notify;
+    events[XCB_UNMAP_NOTIFY]           =      on_unmap_notify;
+    events[XCB_CLIENT_MESSAGE]         =      on_client_message;
 }

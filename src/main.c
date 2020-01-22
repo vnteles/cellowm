@@ -1,9 +1,7 @@
 #include <errno.h>
 #include <signal.h>
 
-
 #include "cello.h"
-
 
 extern int errno;
 

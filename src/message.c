@@ -55,15 +55,15 @@ char * get_opt_value(char * opt, char ** opts, int opts_len, char ** aval) {
 static void parse_wm(char ** opts, int opts_len) {
     // char * aval = NULL;
 
-    if (find_opt("--logout") || find_opt("-l")){
+    if (find_opt("logout") || find_opt("-l")){
         run = false;
         return;
     }
-    if (find_opt("--reload") || find_opt("-r")){
+    if (find_opt("reload") || find_opt("-r")){
         DLOG("Reloading");
         return;
     }
-    if (find_opt("--hijack") || find_opt("-h")){
+    if (find_opt("hijack") || find_opt("-h")){
         DLOG("Hijacking");
         return;
     }

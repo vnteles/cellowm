@@ -10,7 +10,6 @@
 #include <xcb/xcb_keysyms.h>
 #include <xcb/randr.h>
 
-
 #include <string.h>
 
 #include "cello.h"
@@ -29,10 +28,13 @@
  ** @param e the event to be handled
  **/
 void handle_event(xcb_generic_event_t* e) {
-    const uint8_t event_len = sizeof(events) / sizeof(*events);
-    if ((e->response_type) < event_len && events[e->response_type & 0x7F]) {
-        events[e->response_type & 0x7F](e);
+    const uint8_t event_len = 0x7F;
+    uint8_t type = e->response_type & 0x7F;
+    if ((type) < event_len && events[type]) {
+        events[type](e);
+
         xcb_flush(conn);
+        return;
     }
 }
 
@@ -56,7 +58,8 @@ void handle_message(char * msg, int msg_len, int fd) {
             j *= 2;
             urealloc(argv, sizeof(char *) * j);
         }
-    }
+    }        // puts(argv[argc-1]);
+
     argv[argc] = NULL;
     parse_opts(argc, argv);
 }
@@ -91,7 +94,7 @@ void CLOSE_WINDOW(const union param* param) {
             if (rprop.atoms[i] == WM_DELETE_WINDOW) {
                 xcb_send_event(
                     conn, false, focused->id, XCB_EVENT_MASK_NO_EVENT,
-                    (char*)&(xcb_client_message_event_t){
+                    (char *) &(xcb_client_message_event_t){
                         .response_type = XCB_CLIENT_MESSAGE,
                         .format = 32,
                         .sequence = 0,
@@ -178,11 +181,7 @@ void MOVE_WINDOW_TO_DESKTOP(const union param* param) {
 
 
 void MOUSE_MOTION(const union param * param) {
-    int action = param->i;
-
-    /*genererate the cursor*/
-    xcb_cursor_t cursor;
-    cursor = dynamic_cursor_get(action == MOVE_WINDOW ? CURSOR_MOVE : CURSOR_BOTTOM_RIGHT_CORNER);
+    uint32_t action = param->i;
 
      /*----- grab the pointer location -----*/
     xcb_query_pointer_cookie_t query_cookie;
@@ -194,12 +193,36 @@ void MOUSE_MOTION(const union param * param) {
     if (query_reply == NULL)
         return;
 
-    /* get the target struct window */
+    int16_t 
+        px = query_reply->root_x, 
+        py = query_reply->root_y;
+
+    /*--- get the target window ---*/
+
     struct window * target;
     target = find_window_by_id(query_reply->child);
 
     if (!target) 
         return;
+
+    struct geometry wingeo = target->geom;
+
+    /*--- generate the cursor ---*/
+    // set the default cursor style
+    int cursor_style = CURSOR_POINTER;
+
+    if (action == MOVE_WINDOW) cursor_style = CURSOR_MOVE;
+
+    // if resize action, get the resize orientation
+    bool blresize = false;
+    if (action == RESIZE_WINDOW) {
+        blresize = px < wingeo.x + (wingeo.w / 2);
+        cursor_style = blresize ? CURSOR_BOTTOM_LEFT_CORNER : CURSOR_BOTTOM_RIGHT_CORNER;
+    }
+
+    xcb_cursor_t cursor;
+    cursor = dynamic_cursor_get(cursor_style);
+
 
     /*----- grab the pointer -----*/
 
@@ -207,8 +230,8 @@ void MOUSE_MOTION(const union param * param) {
     xcb_grab_pointer_cookie_t pointer_cookie;
     pointer_cookie = xcb_grab_pointer(
         conn, false, root_screen->root,
-        XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_POINTER_MOTION,
-        XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
+        POINTER_MASK, XCB_GRAB_MODE_ASYNC, 
+        XCB_GRAB_MODE_ASYNC, XCB_NONE,
         cursor, XCB_CURRENT_TIME
     );
 
@@ -251,16 +274,9 @@ void MOUSE_MOTION(const union param * param) {
 
     ufree(keyboard_reply);
 
-    /*----- main loop -----*/
-
-    struct geometry wingeo = target->geom;
-
-    int16_t 
-        px = query_reply->root_x, 
-        py = query_reply->root_y;
-
     xcb_raise_window(target->id);
 
+    /*--- main loop ---*/
     bool motion = true;
     for (;motion;) {
         xcb_generic_event_t * event;
@@ -270,38 +286,64 @@ void MOUSE_MOTION(const union param * param) {
 
 
         switch (event->response_type & 0x7F) {
-        case XCB_DESTROY_NOTIFY: case XCB_MAP_REQUEST: case XCB_PROPERTY_NOTIFY: case XCB_CONFIGURE_REQUEST:
-            handle_event(event);
-            break;
-        case XCB_FOCUS_OUT: case XCB_KEY_PRESS: case XCB_KEY_RELEASE: case XCB_BUTTON_RELEASE: case XCB_BUTTON_PRESS:
-            motion = false;
-            break;
-        case XCB_MOTION_NOTIFY: {
-            /* prepare to do the action */
-            xcb_motion_notify_event_t * e = (xcb_motion_notify_event_t *) event;
-
-            switch (action) {
-            case MOVE_WINDOW:
-                xcb_move_window(
-                    target,
-                    wingeo.x + e->event_x - px,
-                    wingeo.y + e->event_y - py
-                );
-
+            case XCB_DESTROY_NOTIFY: case XCB_MAP_REQUEST: case XCB_PROPERTY_NOTIFY: case XCB_CONFIGURE_REQUEST:
+                handle_event(event);
                 break;
-            
-            case RESIZE_WINDOW:
-                xcb_resize_window(
-                    target,
-                    wingeo.w + e->event_x - px,
-                    wingeo.h + e->event_y - py
-                );
+            case XCB_FOCUS_OUT: case XCB_KEY_PRESS: case XCB_KEY_RELEASE: case XCB_BUTTON_RELEASE: case XCB_BUTTON_PRESS:
+                motion = false;
+                break;
+            case XCB_MOTION_NOTIFY: {
+                /* prepare to do the action */
+                xcb_motion_notify_event_t * e = (xcb_motion_notify_event_t *) event;
+
+                switch (action) {
+                    case MOVE_WINDOW:
+                        xcb_move_window(
+                            target,
+                            wingeo.x + e->event_x - px,
+                            wingeo.y + e->event_y - py
+                        );
+
+                        break;
+                
+                    case RESIZE_WINDOW: {
+                            int16_t nw = 0, nh = 0;
+
+                            #define DIMENSION(win_o, event_o, axis) ((int16_t)(win_o + event_o - axis))
+
+                            nh = DIMENSION(wingeo.h, e->event_y, py);
+                            if (!blresize) {
+                                /*normal right resize*/
+                            nw = DIMENSION(wingeo.w, e->event_x, px);
+
+                            } else {
+                                /*custom left resize*/
+
+                                nw = DIMENSION(wingeo.w, - e->event_x, - px);
+
+
+                                // VARDUMP((int)nx);
+                                VARDUMP((int)nw);
+
+                                int16_t nx = target->geom.x + target->geom.w - nw;
+                                if (nw > WINDOW_MIN_WIDTH)
+                                    xcb_move_window(target, nx, target->geom.y);
+                            }
+
+                            #undef DIMENSION
+
+                            if (nw < 0) nw = target->geom.w;
+                            if (nh < 0) nh = target->geom.h;
+                        
+                            xcb_resize_window(target, (uint16_t)nw, (uint16_t)nh);
+                    }
+                    xcb_flush(conn);
+                    break;
+                }
                 break;
             }
-            break;
-        }
-        default:
-            break;
+            default:
+                break;
         }
 
         ufree(event);

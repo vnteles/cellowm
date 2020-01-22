@@ -7,9 +7,6 @@
  **/
 extern struct window_list * wilist;
 
-/*get the window from node*/
-#define __Node2Window__(n, w) w = (struct window *) n->window
-
 /**
  ** @brief find a window from the client list by passing an id
  ** @param wid the id of the window you're lookin for

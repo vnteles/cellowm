@@ -47,12 +47,6 @@ static struct button buttons[] = {
 /*user changes here*/
 static struct key keys[] = {
     /* { key, modifier, function, window modifier, param [ config / command ]  */
-    //open a terminal
-    { XK_Return,           MOD,           RUN,             NONE,             {.com = terminal}       },
-    //open rofi
-    { XK_space,            MOD,           RUN,             NONE,             {.com = fixed_menu}     },
-    //reload polybar
-    { XK_r,                MOD|CONTROL,   RUN,             NONE,             {.com = reload_polybar} },
     //close window
     { XK_q,                MOD,           CLOSE_WINDOW,    NO_ROOT,          {.i = NONE}             },
     //reload wm

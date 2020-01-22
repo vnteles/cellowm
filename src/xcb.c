@@ -161,6 +161,8 @@ void xcb_move_window(struct window * w, int16_t x, int16_t y){
     w->geom.x = x;
     w->geom.y = y;
 
+    VARDUMP((int)w->geom.x);
+
     xcb_configure_window(
         conn, w->id,
         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,

@@ -16,6 +16,11 @@
     XCB_EVENT_MASK_PROPERTY_CHANGE          |\
     XCB_EVENT_MASK_BUTTON_PRESS
 
+#define POINTER_MASK \
+    XCB_EVENT_MASK_BUTTON_RELEASE           |\
+    XCB_EVENT_MASK_BUTTON_PRESS             |\
+    XCB_EVENT_MASK_POINTER_MOTION
+
 void xcb_set_root_def_attr();
 
 xcb_screen_t * xcb_get_root_screen(xcb_connection_t * con, int scr);

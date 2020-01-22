@@ -1,17 +1,12 @@
 #include "list.h"
 #include "types.h"
 #include "log.h"
-
-struct window_list ** new_empty_list(uint8_t size) {
-    return ( struct window_list ** ) umalloc(size * sizeof(struct window_list *));
-}
+#include "utils.h"
 
 struct window_list * new_empty_node(struct window_list ** list) {
     struct window_list * node;
 
     if (!list) return NULL;
-
-    // NLOG("{$} Creating a new empty node for the list at %p\n", list);
 
     node = umalloc(sizeof(struct window_list));
 
@@ -22,11 +17,10 @@ struct window_list * new_empty_node(struct window_list ** list) {
         node->prev = NULL;
     }
     *list = node;
-    // NLOG("{$} Node %p appended to list %p\n", node, list);
     return node;
 }
 
-void move_to_head(struct window_list ** list, struct window_list * node){
+void bring_to_head(struct window_list ** list, struct window_list * node){
     if (!node || !list || !*list) return;
 
     struct window_list * aux = *list;
@@ -46,8 +40,8 @@ void move_to_head(struct window_list ** list, struct window_list * node){
     }
 }
 
-void pop_node(struct window_list ** list, struct window_list * node) {
-    if (!node || !list || !*list) return;
+struct window_list * pop_node(struct window_list ** list, struct window_list * node) {
+    if (!node || !list || !*list) return NULL;
 
     struct window_list * aux = *list;
 
@@ -61,7 +55,7 @@ void pop_node(struct window_list ** list, struct window_list * node) {
             node->next->prev = node->prev;
     }
 
-    ufree(node);
+    return node;
 }
 
 void free_node(struct window_list ** list, struct window_list * node) {
@@ -69,5 +63,7 @@ void free_node(struct window_list ** list, struct window_list * node) {
     if (node->window)
         ufree(node->window);
     node->window = NULL;
-    pop_node(list, node);
+    struct window_list * pnode = pop_node(list, node);
+
+    if (pnode) ufree(pnode);
 }

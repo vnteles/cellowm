@@ -108,10 +108,7 @@ void cello_clean() {
         xcb_disconnect(conn);
     }
 
-    unlink(wmsockp);
     conn = NULL;
-
-
 }
 
 void cello_exit() {
@@ -134,13 +131,16 @@ __always_inline static void cello_setup_cursor() {
 uint32_t cello_get_current_desktop() {
     uint32_t current = 0;
 
-    if (
-        xcb_ewmh_get_current_desktop_reply(
-        ewmh, xcb_ewmh_get_current_desktop(ewmh, 0), &current, NULL)
-    )
-        return current;
+    xcb_get_property_cookie_t current_cookie;
+    current_cookie = xcb_ewmh_get_current_desktop(ewmh, 0);
 
-    CRITICAL("{!!} Could not get the desktop list");
+    uint8_t current_reply;
+    current_reply = xcb_ewmh_get_current_desktop_reply(ewmh, current_cookie, &current, NULL);
+
+    if (!current_reply)
+        CRITICAL("{!!} Could not get the desktop list");
+
+    return current;
 }
 
 // desktop
@@ -152,23 +152,26 @@ void cello_add_window_to_desktop(struct window *w, uint32_t ds) {
     struct window_list *node;
     if (!(node = new_empty_node(&dslist[ds])))
         return;
+
     w->dlist = node;
     w->d = ds;
     node->window = w;
 
     // change window desktop in ewmh
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_DESKTOP,
-                                            XCB_ATOM_CARDINAL, 32, 1, &w->d);
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE,
+        w->id, ewmh->_NET_WM_DESKTOP,
+        XCB_ATOM_CARDINAL, 32, 1, &w->d
+    );
 
     /*verify if window can stay mapped*/
     {
-        uint32_t c = cello_get_current_desktop();
         struct window *fw = NULL;
 
-        if (dslist[c] && dslist[c]->window)
-            fw = (struct window *)dslist[c]->window;
+        if (dslist[ds] && dslist[ds]->window)
+            fw = (struct window *)dslist[ds]->window;
 
-        if (w->d != c || (fw && !(fw->state_mask & CELLO_STATE_NORMAL))) {
+        if (w->d != ds || (fw && !(fw->state_mask & CELLO_STATE_NORMAL))) {
             xcb_unmap_window(conn, w->id);
             return;
         }
@@ -218,7 +221,7 @@ void cello_unmaximize_window(struct window *w) {
     current = cello_get_current_desktop();
     /*and map all windows*/
     for (aux = dslist[current]; aux; aux = aux->next) {
-        __Node2Window__(aux, win);
+        win = aux->window;
         if (win->id != w->id) {
             xcb_map_window(conn, win->id);
             // xcb_map_window(conn, win->frame);
@@ -321,7 +324,9 @@ void cello_unmap_win_from_desktop(struct window *w) {
     struct window *focused = xcb_get_focused_window();
     if (focused && focused->id == w->id)
         xcb_unfocus();
-    pop_node(&dslist[w->d], w->dlist);
+
+    struct window_list * pnode = pop_node(&dslist[w->d], w->dlist);
+    if (pnode) ufree(pnode);
 
     w->d = -1;
     w->dlist = NULL;
@@ -345,8 +350,7 @@ void cello_unmap_window(struct window *w) {
 // xcb
 void cello_destroy_window(struct window *w) {
     struct window_list *window;
-        for
-            each_window {
+        for each_window {
                 struct window *win = (struct window *)window->window;
                 if (win->id == w->id) {
                     cello_unmap_window(w);
@@ -486,7 +490,7 @@ void cello_setup_all() {
     
     init_events();
 
-    conf.focus_gap = 32;
+    conf.focus_gap = 50;
 
     ewmh_init(conn);
     cello_init_atoms();
@@ -498,6 +502,7 @@ void cello_setup_all() {
 
     NLOG("Initializing %s\n", WMNAME);
 
+    // temporary
     cello_grab_keys();
 
     xcb_set_root_def_attr();

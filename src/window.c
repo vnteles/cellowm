@@ -34,10 +34,12 @@ static struct geometry get_geometry(xcb_drawable_t wid) {
     xcb_get_geometry_cookie_t geometry_cookie;
     geometry_cookie = xcb_get_geometry(conn, wid);
 
+    // get the geometry reply
     xcb_get_geometry_reply_t * geometry_reply;
     if (!(geometry_reply = xcb_get_geometry_reply(conn, geometry_cookie, NULL)))
         return geometry;
 
+    // set the geometry
     geometry.x = geometry_reply->x;
     geometry.y = geometry_reply->y;
     geometry.w = geometry_reply->width;
@@ -54,8 +56,6 @@ struct window *window_configure_new(xcb_window_t win) {
     bool has_maximized = false;
     uint32_t current_ds;
 
-    current_ds = cello_get_current_desktop();
-
     if (ewmh_is_special_window(win)) {
         xcb_map_window(conn, win);
         return NULL;
@@ -63,14 +63,17 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w = umalloc(sizeof(window));
 
-    if (!(dslist[current_ds]->window->state_mask | CELLO_STATE_NORMAL))
+    current_ds = cello_get_current_desktop();
+    if (dslist[current_ds] && !(dslist[current_ds]->window->state_mask | CELLO_STATE_NORMAL))
         has_maximized = true;
+
     if (!(node = new_empty_node(&wilist)))
         return 0;
 
-    if (has_maximized) {
-        move_to_head(&dslist[current_ds], dslist[current_ds]);
-    }
+    if (has_maximized)
+        bring_to_head(&dslist[current_ds], &dslist[current_ds][1]);
+
+
 
     node->window = w;
 
@@ -90,6 +93,8 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w->d = 0;
 
+    printf("wx %d\n", w->geom.x);
+    printf("wy %d\n", w->geom.y);
     if (w->geom.x < 1 && w->geom.y < 1)
         center_window(w);
 
@@ -364,7 +369,7 @@ void window_maximize(struct window *w, uint16_t stt) {
         /*update decoration*/
         update_decoration(w);
 
-        move_to_head(&dslist[cello_get_current_desktop()], w->dlist);
+        bring_to_head(&dslist[cello_get_current_desktop()], w->dlist);
 
         xcb_flush(conn);
 }
