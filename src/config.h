@@ -33,11 +33,11 @@ command(print, "scrot");
 
 // button map | temporary?
 static struct button buttons[] = {
-    { XCB_BUTTON_INDEX_1,  MOD, on_mouse_motion, NO_ROOT, .i = MOVE_WINDOW },
-    { XCB_BUTTON_INDEX_3,  MOD, on_mouse_motion, NO_ROOT, .i = RESIZE_WINDOW },
+    { XCB_BUTTON_INDEX_1,  MOD, .f = on_mouse_motion, .win_mask = NO_ROOT, .i = MOVE_WINDOW },
+    { XCB_BUTTON_INDEX_3,  MOD, .f = on_mouse_motion, .win_mask = NO_ROOT, .i = RESIZE_WINDOW },
 
     /*feel free to change this*/
-    { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY, {.com = (char *[]){"jgmenu", 0}} },
+    // { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY },
 };
 
 #endif

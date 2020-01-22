@@ -50,7 +50,7 @@ static void on_button_press(xcb_generic_event_t * event) {
 
 
         // now we can properly grab the action
-        buttons[i].function(buttons[i].i);
+        buttons[i].f(buttons[i].i);
     }
 }
 
