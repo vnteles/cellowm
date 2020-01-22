@@ -140,7 +140,6 @@ static void on_property_notify(xcb_generic_event_t * event) {
     xcb_property_notify_event_t* e = (xcb_property_notify_event_t*)event;
 
     if (e->atom == ewmh->_NET_WM_STRUT_PARTIAL && ewmh_check_strut(e->window)){
-        puts("big pp");
     }
 }
 

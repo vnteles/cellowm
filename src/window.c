@@ -93,8 +93,6 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w->d = 0;
 
-    printf("wx %d\n", w->geom.x);
-    printf("wy %d\n", w->geom.y);
     if (w->geom.x < 1 && w->geom.y < 1)
         center_window(w);
 
@@ -353,11 +351,11 @@ void window_maximize(struct window *w, uint16_t stt) {
             (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0)
         );
 
-        printf("Resizing with : %d,%d",
-           root_screen->width_in_pixels -
-               (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2,
-           root_screen->height_in_pixels -
-               (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2);
+        // printf("Resizing with : %d,%d",
+        //    root_screen->width_in_pixels -
+        //        (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2,
+        //    root_screen->height_in_pixels -
+        //        (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2);
 
         /*set maximized state*/
         __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
