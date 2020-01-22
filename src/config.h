@@ -37,7 +37,7 @@ static struct button buttons[] = {
     { XCB_BUTTON_INDEX_3,  MOD, on_mouse_motion, NO_ROOT, {.i = RESIZE_WINDOW} },
 
     /*feel free to change this*/
-    { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY, { .com = context_menu } },
+    // { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY, { .com = context_menu } },
 };
 
 #endif
