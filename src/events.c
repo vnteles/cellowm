@@ -25,7 +25,7 @@ static void on_key_press(xcb_generic_event_t * event) {
         if (!keys[i].function || keysym != keys[i].key) continue;
         else if (keys[i].mod_mask != e->state) continue;
 
-        keys[i].function(&keys[i].param);
+        keys[i].function(keys[i].action);
         break;
     }
 }
@@ -50,7 +50,7 @@ static void on_button_press(xcb_generic_event_t * event) {
 
 
         // now we can properly grab the action
-        buttons[i].f(buttons[i].i);
+        buttons[i].function(buttons[i].action);
     }
 }
 
@@ -185,18 +185,19 @@ void init_events() {
     events[XCB_CLIENT_MESSAGE]         =      on_client_message;
 }
 
-void MOVE_WINDOW_TO_DESKTOP(const union param* param) {
+void MOVE_WINDOW_TO_DESKTOP(const union action param) {
     struct window* f = xcb_get_focused_window();
     if (!f) return;
-    if (param->i == f->d) return;
+    if (param.i == f->d) return;
 
     cello_unmap_win_from_desktop(f);
-    cello_add_window_to_desktop(f, param->i);
+    cello_add_window_to_desktop(f, param.i);
     xcb_unfocus();
 }
 
 
-void on_mouse_motion(int8_t action) {
+void on_mouse_motion(const union action act) {
+    uint8_t action = act.i;
      /*----- grab the pointer location -----*/
     xcb_query_pointer_cookie_t query_cookie;
     query_cookie = xcb_query_pointer(conn, root_screen->root);
@@ -236,7 +237,6 @@ void on_mouse_motion(int8_t action) {
 
     xcb_cursor_t cursor;
     cursor = dynamic_cursor_get(cursor_style);
-
 
     /*----- grab the pointer -----*/
 

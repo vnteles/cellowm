@@ -70,40 +70,40 @@ void handle_message(char * msg, int msg_len, int fd) {
     parse_opts(argc, argv);
 }
 
-void RUN(const union param* param) {
+void RUN(const union action param) {
     if (fork()) return;
 
     setsid();
-    execvp(param->com[0], param->com);
+    execvp(param.com[0], param.com);
 }
 
-void CLOSE_WINDOW(const union param* param) {
+void CLOSE_WINDOW(const union action param) {
     struct window* focused;
     focused = xcb_get_focused_window();
 
     if (!focused || focused->id == root_screen->root) return;
 
-    xcb_close_window(focused->id, param->i);
+    xcb_close_window(focused->id, param.i);
 }
 
-void CENTER_WINDOW(const union param* param) {
+void CENTER_WINDOW(const union action param) {
     struct window* w = xcb_get_focused_window();
-    if (param->i & X) {
+    if (param.i & X) {
         center_window_x(w);
         return;
     }
-    if (param->i & Y) {
+    if (param.i & Y) {
         center_window_y(w);
         return;
     }
     center_window(w);
 }
 
-void RELOAD_CONFIG(const union param* param __attribute((unused))) {
+void RELOAD_CONFIG(const union action param __attribute((unused))) {
     cello_reload();
 }
 
-void TOGGLE_BORDER(const union param* param __attribute((unused))) {
+void TOGGLE_BORDER(const union action param __attribute((unused))) {
     struct window* focused;
     focused = xcb_get_focused_window();
     if (!focused) return;
@@ -116,7 +116,7 @@ void TOGGLE_BORDER(const union param* param __attribute((unused))) {
     update_decoration(focused);
 }
 
-void TOGGLE_MAXIMIZE(const union param* param __attribute((unused))) {
+void TOGGLE_MAXIMIZE(const union action param __attribute((unused))) {
     struct window* focused;
     focused = xcb_get_focused_window();
     if (!focused) return;
@@ -127,7 +127,7 @@ void TOGGLE_MAXIMIZE(const union param* param __attribute((unused))) {
         window_maximize(focused, CELLO_STATE_MAXIMIZE);
 }
 
-void TOGGLE_MONOCLE(const union param* param __attribute__((unused))) {
+void TOGGLE_MONOCLE(const union action param __attribute__((unused))) {
     struct window* focused;
     focused = xcb_get_focused_window();
     if (!focused) return;
@@ -138,4 +138,4 @@ void TOGGLE_MONOCLE(const union param* param __attribute__((unused))) {
         window_maximize(focused, CELLO_STATE_FOCUS);
 }
 
-void CHANGE_DESKTOP(const union param* param) { cello_goto_desktop(param->i); }
+void CHANGE_DESKTOP(const union action param) { cello_goto_desktop(param.i); }

@@ -33,11 +33,11 @@ command(print, "scrot");
 
 // button map | temporary?
 static struct button buttons[] = {
-    { XCB_BUTTON_INDEX_1,  MOD, .f = on_mouse_motion, .win_mask = NO_ROOT, .i = MOVE_WINDOW },
-    { XCB_BUTTON_INDEX_3,  MOD, .f = on_mouse_motion, .win_mask = NO_ROOT, .i = RESIZE_WINDOW },
+    { XCB_BUTTON_INDEX_1,  MOD, on_mouse_motion, NO_ROOT, {.i = MOVE_WINDOW } },
+    { XCB_BUTTON_INDEX_3,  MOD, on_mouse_motion, NO_ROOT, {.i = RESIZE_WINDOW} },
 
     /*feel free to change this*/
-    // { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY },
+    { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY, { .com = context_menu } },
 };
 
 #endif
@@ -50,12 +50,8 @@ static struct button buttons[] = {
 /*user changes here*/
 static struct key keys[] = {
     /* { key, modifier, function, window modifier, param [ config / command ]  */
-    //close window
-    { XK_q,                MOD,           CLOSE_WINDOW,    NO_ROOT,          {.i = NONE}             },
     //reload wm
     { XK_r,                MOD|SHIFT,     RELOAD_CONFIG,   NONE,             {}                      },
-    //kill window
-    { XK_q,                MOD|SHIFT,     CLOSE_WINDOW,    NO_ROOT,          {.i = KILL}             },
 
     //center window
     { XK_c,                MOD,           CENTER_WINDOW,   NO_ROOT,          {.i = NONE}           },

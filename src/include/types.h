@@ -49,7 +49,7 @@ struct window_list {
     struct window * window;
 };
 
-union param {
+union action {
     /*command*/
     char ** com;
     /*config constant*/
@@ -58,15 +58,13 @@ union param {
 
 #define MOD_HEADER \
     const unsigned int mod_mask; \
-    void (*function)(const union param *); \
+    void (*function)(const union action); \
     uint32_t win_mask; \
-    const union param param; \
+    const union action action; \
 
 struct button {
     const uint8_t button;
     MOD_HEADER;
-    int8_t i;
-    void (*f)(int8_t);
 };
 
 struct key {

@@ -19,7 +19,7 @@
  **/
 int find_arg(char * arg, int argc, char ** argv) {
     for (int i = 0; i < argc; i++)
-        if (argv[i] && comp_str(argv[i], arg)) return i;
+        if (comp_str(argv[i], arg)) return i;
 
     return -1;
 }
@@ -107,13 +107,11 @@ static void parse_window(char ** opts, int opts_len) {
     }
 
     /*send window to desktop*/
-    if (get_aval("--move-to")) {
+    if (get_aval("sendto")) {
         // puts("move-to");
         struct window * w = get_window_arg(false, opts, opts_len);
         if (w) {
             uint32_t ds = (uint32_t) strtol(aval, NULL, 10);
-
-            // char * rwid = NULL;
 
             if (comp_str(aval, "next")) {
                 ds = cello_get_current_desktop() + 1;
@@ -127,7 +125,16 @@ static void parse_window(char ** opts, int opts_len) {
         }
     }
 
-    if (get_aval("--close")) {
+    else if (get_aval("close")) {
+        puts("close window");
+        struct window * w = get_window_arg(true, opts, opts_len);
+        if (w) {
+            xcb_close_window(w->id, false);
+        }
+    }
+
+    else if (get_aval("kill")) {
+        puts("killing");
         struct window * w = get_window_arg(true, opts, opts_len);
         if (w) {
             xcb_close_window(w->id, true);
