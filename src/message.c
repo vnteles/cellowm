@@ -6,6 +6,8 @@
 #include "log.h"
 #include "xcb.h"
 
+// TODO: create a new message parser :/
+
 #define comp_str(s1, s2) ( strcmp(s1, s2) == 0 )
 
 /**
@@ -73,12 +75,12 @@ struct window * get_window_arg(bool cached, char ** opts, int opts_len) {
     static struct window * w = NULL;
 
     if (cached && w) return w;
+
     char * rwid = NULL;
     if (find_opt("--focused")) {
         w = xcb_get_focused_window();
     } else if (get_val("--id", rwid)) {
         xcb_window_t wid = strtol(rwid, NULL, 16);
-
         w = find_window_by_id(wid);
     } else {
         w = NULL;
@@ -106,7 +108,7 @@ static void parse_window(char ** opts, int opts_len) {
 
     /*send window to desktop*/
     if (get_aval("--move-to")) {
-        puts("move-to");
+        // puts("move-to");
         struct window * w = get_window_arg(false, opts, opts_len);
         if (w) {
             uint32_t ds = (uint32_t) strtol(aval, NULL, 10);
@@ -125,8 +127,16 @@ static void parse_window(char ** opts, int opts_len) {
         }
     }
 
+    if (get_aval("--close")) {
+        struct window * w = get_window_arg(true, opts, opts_len);
+        if (w) {
+            xcb_close_window(w->id, true);
+        }
+    }
+
+    /*list windows*/
     if (find_opt("--list") || find_opt("-l")) {
-        /*list windows*/
+        //temporary
         {
             for (struct window_list * wl = wilist; wl; wl=wl->next) {
                 // todo: send to the client socket
@@ -135,6 +145,7 @@ static void parse_window(char ** opts, int opts_len) {
             puts("");
         }
     }
+
 }
 
 static void parse_desktop(char ** opts, int opts_len) {

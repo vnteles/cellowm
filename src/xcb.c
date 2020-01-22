@@ -236,3 +236,41 @@ xcb_keysym_t xcb_get_keysym_from_keycode(xcb_keycode_t keycode) {
     xcb_key_symbols_free(keysyms);
     return keysym;
 }
+
+void xcb_close_window(xcb_window_t wid, bool kill) {
+
+    if (kill)
+        goto kill;
+
+    xcb_get_property_cookie_t cprop;
+    xcb_icccm_get_wm_protocols_reply_t rprop;
+
+    // try to use icccm delete
+    // get protocols
+    cprop = xcb_icccm_get_wm_protocols_unchecked(conn, wid, ewmh->WM_PROTOCOLS);
+
+    kill = true;
+    if (xcb_icccm_get_wm_protocols_reply(conn, cprop, &rprop, NULL) == 1) {
+        for (uint32_t i = 0; i < rprop.atoms_len; i++) {
+            if (rprop.atoms[i] == WM_DELETE_WINDOW) {
+                xcb_send_event(
+                    conn, false, wid, XCB_EVENT_MASK_NO_EVENT,
+                    (char *) &(xcb_client_message_event_t){
+                        .response_type = XCB_CLIENT_MESSAGE,
+                        .format = 32,
+                        .sequence = 0,
+                        .window = wid,
+                        .type = ewmh->WM_PROTOCOLS,
+                        .data.data32 = {WM_DELETE_WINDOW, XCB_CURRENT_TIME}});
+                kill = false;
+                break;
+            }
+        }
+        xcb_icccm_get_wm_protocols_reply_wipe(&rprop);
+    }
+
+    if (kill) {
+        kill:
+        xcb_kill_client(conn, wid);
+    }
+}

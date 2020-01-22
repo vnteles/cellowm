@@ -9,15 +9,6 @@
 #include "cursor.h"
 #include "log.h"
 
-// button map | temporary?
-static struct button buttons[] = {
-    { XCB_BUTTON_INDEX_1,  MOD, MOUSE_MOTION, NO_ROOT, {.i = MOVE_WINDOW} },
-    { XCB_BUTTON_INDEX_3,  MOD, MOUSE_MOTION, NO_ROOT, {.i = RESIZE_WINDOW} },
-
-    /*feel free to change this*/
-    { XCB_BUTTON_INDEX_3,  MOD, RUN, ROOT_ONLY, {.com = (char *[]){"jgmenu", 0}} },
-};
-
 #define each_button \
     (unsigned int i = 0; i < (sizeof(buttons) / sizeof(*buttons)); i++)
 
@@ -59,7 +50,7 @@ static void on_button_press(xcb_generic_event_t * event) {
 
 
         // now we can properly grab the action
-        buttons[i].function(&buttons[i].param);
+        buttons[i].function(buttons[i].i);
     }
 }
 

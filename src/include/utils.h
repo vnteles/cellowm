@@ -31,6 +31,7 @@
 /*Check if mask `m` exists in maskv*/
 #define __HasMask__(maskv, m) maskv & m
 
+
 /* Generally we don't need to allocate too much space,
  * thus we are using uint16 instead of size_t or uint32
  */

@@ -65,6 +65,7 @@ union param {
 struct button {
     const uint8_t button;
     MOD_HEADER;
+    uint8_t i;
 };
 
 struct key {
