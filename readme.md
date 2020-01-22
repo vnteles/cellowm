@@ -39,3 +39,11 @@ $ make install
 ```
 ---
 ##### In case of bugs, please, write an issue. pull requests are welcome too 😁
+---
+
+## Thanks
+- sowm
+- bswm
+- 2bwm
+- i3wm
+- goomwwm
