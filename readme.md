@@ -12,10 +12,11 @@ some functionalities I want to implement to cello (not necessary on this order)
 - [x] Basic WM functionalities
 - [x] Basic EWMH integration
 - [x] Fullscreen windows
+- [x] Basic bar/dock support - tested polybar, tint2, latte, plank(doesn't display softwares launched) and yabar(crash sometimes)
 - [ ] Temporary message parser
 - [ ] Focus mode
 - [ ] Multi-monitor support
-- [ ] Reserve space for bars
+- [ ] Reserve space for bars/docks
 - [ ] New message parser
 - [ ] Fix resize teleports
 - [ ] Integrations with QT (set theme, icon theme, fonts, ...)
