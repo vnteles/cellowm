@@ -37,14 +37,12 @@ $ make
 # And to install
 $ make install
 ```
----
-##### In case of bugs, please, write an issue. pull requests are welcome too 😁
----
 
 ## Known bugs
 - celloc not recognizing some options
 - reload crash the wm
 - resizing isn't natural
+##### In case of new bugs, please, write an issue. pull requests are welcome too 😁
 
 ## Thanks
 - sowm
