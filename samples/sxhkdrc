@@ -22,7 +22,7 @@ super + r
 # giblib error: couldn't grab keyboard:Resource temporarily unavailable
 Print
     sleep 0.2; \
-    scrot -s $HOME/'pics/screenshots/%Y-%m-%d_%H%M%S-$wx$h_scrot.png' -q 90
+    scrot -s $HOME'/pics/screenshots/%Y-%m-%d_%H%M%S-$wx$h_scrot.png' -q 90
 
 
 # Volume down 

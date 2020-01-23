@@ -2,6 +2,7 @@
 #include "cello.h"
 
 #include <unistd.h>
+#include <string.h>
 
 #include <xcb/xcb.h>
 #include <xcb/xcb_ewmh.h>
@@ -69,6 +70,28 @@ void ewmh_change_desktop_number(uint8_t scrno, uint32_t desktop_no){
     xcb_ewmh_set_number_of_desktops(ewmh, scrno, desktop_no);
 }
 
+void ewmh_change_desktop_names(uint8_t scrno, char * names[MAX_DESKTOPS], int names_len) {
+    uint16_t allocsize = 5;
+    char * desk_names = umalloc(allocsize);
+    int len = 0;
+
+    for (int i = 0; i < names_len; i++) {
+        int tmp_len = strlen(names[i]);
+
+        if (len+tmp_len >= allocsize) {
+            allocsize*=2;
+            urealloc(desk_names, allocsize);
+        }
+
+        strcpy(desk_names+len, names[i]);
+
+        len+=tmp_len;
+        desk_names[len++] = '\0';
+    }
+
+    xcb_ewmh_set_desktop_names(ewmh, scrno, len, desk_names);
+    ufree(desk_names);
+}
 
 void ewmh_change_to_desktop(int scrno, uint32_t desktop){
     if (desktop >= MAX_DESKTOPS) return;
@@ -114,6 +137,6 @@ bool ewmh_is_special_window(xcb_window_t win) {
 }
 
 bool ewmh_check_strut(xcb_window_t wid) {
-    bool changed = false;
+    bool changed = wid;
 	return changed;
 }

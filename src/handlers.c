@@ -57,7 +57,6 @@ void handle_message(char * msg, int msg_len, int fd) {
         argv[argc] = umalloc(len);
 
         strcpy(argv[argc++], msg+i);
-        // puts(argv[argc-1]);
         i+= len;
 
         if (argc == j) {

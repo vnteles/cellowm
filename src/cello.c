@@ -496,6 +496,7 @@ void cello_setup_all() {
     cello_init_atoms();
 
     ewmh_create_desktops(scr, MAX_DESKTOPS);
+    ewmh_change_desktop_names(scr, (char * []) { "1", "II", "III", "IV", "V" }, 5);
     ewmh_create_ewmh_window(conn, scr);
 
     cello_goto_desktop(current_ds);
