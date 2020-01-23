@@ -118,9 +118,10 @@ bool ewmh_is_special_window(xcb_window_t win) {
     if ( xcb_ewmh_get_wm_window_type_reply(ewmh, cprops, &wt, NULL) == 1 ){
 
         #define is_special ( \
-            atom == ewmh->_NET_WM_WINDOW_TYPE_DOCK    ||\
-            atom == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP ||\
-            atom == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR   \
+            atom == ewmh->_NET_WM_WINDOW_TYPE_DOCK          ||\
+            atom == ewmh->_NET_WM_WINDOW_TYPE_DESKTOP       ||\
+            atom == ewmh->_NET_WM_WINDOW_TYPE_TOOLBAR       ||\
+            atom == ewmh->_NET_WM_WINDOW_TYPE_NOTIFICATION    \
         )
 
         for (i = 0; i < wt.atoms_len; i++){

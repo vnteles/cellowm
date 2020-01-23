@@ -73,8 +73,6 @@ struct window *window_configure_new(xcb_window_t win) {
     if (has_maximized)
         bring_to_head(&dslist[current_ds], &dslist[current_ds][1]);
 
-
-
     node->window = w;
 
     w->id = win;
@@ -93,9 +91,6 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w->d = 0;
 
-    if (w->geom.x < 1 && w->geom.y < 1)
-        center_window(w);
-
     w->dlist = NULL;
     w->wlist = node;
 
@@ -106,6 +101,9 @@ struct window *window_configure_new(xcb_window_t win) {
 
     /*change the parent of the struct window*/
     // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
+
+    if (w->geom.x < 1 && w->geom.y < 1)
+        center_window(w);
 
     xcb_flush(conn);
 

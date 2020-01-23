@@ -28,14 +28,15 @@
  ** @param e the event to be handled
  **/
 void handle_event(xcb_generic_event_t* e) {
-    const uint8_t event_len = 0x7F;
-    uint8_t type = e->response_type & 0x7F;
-    if ((type) < event_len && events[type]) {
-        events[type](e);
+    uint8_t evcode = e->response_type & 0x7F;
+    
+    if ((evcode) < 0x7F && events[evcode]) {
+        events[evcode](e);
 
         xcb_flush(conn);
         return;
     }
+    printf("%d\n", evcode);
 }
 
 /**
@@ -47,26 +48,26 @@ void handle_event(xcb_generic_event_t* e) {
 void handle_message(char * msg, int msg_len, int fd) {
     //TODO: send error message back to the fd
 
-    int argc = 0, j = 10;
-    char ** argv;
+    int arg_len = 0, j = 10;
+    char ** args;
 
-    argv = umalloc(sizeof(char *) * j);
+    args = umalloc(sizeof(char *) * j);
 
     for (int i = 0; i < msg_len; i++) {
         int len = strlen(msg+i);
-        argv[argc] = umalloc(len);
+        args[arg_len] = umalloc(len);
 
-        strcpy(argv[argc++], msg+i);
+        strcpy(args[arg_len++], msg+i);
         i+= len;
 
-        if (argc == j) {
+        if (arg_len == j) {
             j *= 2;
-            urealloc(argv, sizeof(char *) * j);
+            urealloc(args, sizeof(char *) * j);
         }
     }
 
-    argv[argc] = NULL;
-    parse_opts(argc, argv);
+    args[arg_len] = NULL;
+    parse_opts(arg_len, args);
 }
 
 void RUN(const union action param) {

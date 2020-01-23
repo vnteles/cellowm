@@ -73,12 +73,26 @@ static void on_enter_notify(xcb_generic_event_t * event) {
     xcb_focus_window(w);
     xcb_flush(conn);
 }
+
 static void on_configure_notify(xcb_generic_event_t * event) {
     NLOG("Configure Notify event received");
+    xcb_configure_notify_event_t * e = (xcb_configure_notify_event_t *) event;
+
+    if (e->window == root_screen->root) {
+        puts("changed something");
+        #define applyifchanged(a, b) a = a != b ? b : a
+
+        applyifchanged(root_screen->width_in_pixels, e->width);
+        applyifchanged(root_screen->height_in_pixels, e->height);
+
+        #undef applyifchanged
+    }
+
     // only when set up xrandr
 }
 
 static void on_configure_request(xcb_generic_event_t * event) {
+    puts("config request");
     xcb_configure_request_event_t* e = (xcb_configure_request_event_t*)event;
 
     uint32_t values[7];
@@ -139,7 +153,11 @@ static void on_map_request(xcb_generic_event_t * event) {
 static void on_property_notify(xcb_generic_event_t * event) {
     xcb_property_notify_event_t* e = (xcb_property_notify_event_t*)event;
 
-    if (e->atom == ewmh->_NET_WM_STRUT_PARTIAL && ewmh_check_strut(e->window)){
+    if (e->atom == ewmh->_NET_WM_STRUT_PARTIAL){
+        puts("strut changed");
+    }
+    if (e->atom == XCB_ATOM_WM_HINTS) {
+        puts("wm hint");
     }
 }
 
@@ -156,7 +174,6 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
 
 static void on_client_message(xcb_generic_event_t * event) {
     xcb_client_message_event_t * e = (xcb_client_message_event_t *) event;
-
     // change the desktop message
     if (e->type == ewmh->_NET_CURRENT_DESKTOP) {
         cello_goto_desktop(e->data.data32[0]);
