@@ -2,4 +2,4 @@
 
 #include "utils.h"
 
-void parse_opts(int argc, char ** argv);
+void parse_opts(int len, char ** msg);
