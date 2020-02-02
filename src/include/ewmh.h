@@ -20,3 +20,5 @@ void ewmh_change_desktop_names(uint8_t scrno, char * names[MAX_DESKTOPS], int na
 
 bool ewmh_is_special_window(xcb_window_t win);
 bool ewmh_check_strut(xcb_window_t wid);
+
+void ewmh_handle_strut(xcb_window_t win);

@@ -31,7 +31,8 @@ extern struct config conf;
 
 extern bool run;
 
-xcb_atom_t WM_DELETE_WINDOW;
+xcb_atom_t XA_WM_DELETE_WINDOW;
+xcb_atom_t XA_NET_WM_WINDOW_OPACITY;
 
 xcb_screen_t * get_screen(xcb_connection_t con, int scr);
 

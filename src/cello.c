@@ -29,19 +29,19 @@ xcb_screen_t *root_screen = NULL;
 
 bool run;
 
-struct window_list *dslist[MAX_DESKTOPS];
-
 static int sockfd, connfd;
 char wmsockp[256];
+
+int scrno;
 
 struct config conf;
 
 static uint32_t current_ds = 0;
 
-static int cello_setup_conn() {
+static bool cello_setup_conn() {
     NLOG("Setting up the %s connection\n", WMNAME);
 
-    int scrno = -1;
+    scrno = -1;
 
     conn = xcb_connect(NULL, &scrno);
 
@@ -68,7 +68,7 @@ static int cello_setup_conn() {
 
     // create the socket
     addr.sun_family = AF_UNIX;
-    if ((sockfd = socket(addr.sun_family, SOCK_STREAM, 0)) == -1) 
+    if ((sockfd = socket(addr.sun_family, SOCK_STREAM, 0)) == -1)
         CRITICAL("Could not open the socket file descriptor");
 
     unlink(wmsockp);
@@ -81,7 +81,23 @@ static int cello_setup_conn() {
 
     NLOG("Socket created successfully\n");
 
-    return scrno;
+    return scrno == -1 ? false : true;
+}
+
+void cello_init_config() {
+    conf.border = false;
+    conf.focus_gap = 30;
+    conf.inner_border = 1;
+    conf.outer_border = 1;
+
+    //solid red
+    conf.inner_border_color = 0xff000000 | 0xff0000;
+    //solid green
+    conf.outer_border_color = 0xff000000 | 0x00ff00;
+
+    conf.desktop_number = 5;
+
+    conf.config_ok = false;
 }
 
 /*close the connection cleaning the window list*/
@@ -132,7 +148,7 @@ uint32_t cello_get_current_desktop() {
     uint32_t current = 0;
 
     xcb_get_property_cookie_t current_cookie;
-    current_cookie = xcb_ewmh_get_current_desktop(ewmh, 0);
+    current_cookie = xcb_ewmh_get_current_desktop(ewmh, scrno);
 
     uint8_t current_reply;
     current_reply = xcb_ewmh_get_current_desktop_reply(ewmh, current_cookie, &current, NULL);
@@ -283,11 +299,15 @@ end_map:
 
 // window
 void cello_update_wilist_with(xcb_drawable_t wid) {
-    xcb_change_property(conn, XCB_PROP_MODE_APPEND, root_screen->root,
-                                            ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &wid);
-    xcb_change_property(conn, XCB_PROP_MODE_APPEND, root_screen->root,
-                                            ewmh->_NET_CLIENT_LIST_STACKING, XCB_ATOM_WINDOW, 32, 1,
-                                            &wid);
+    xcb_change_property(
+        conn, XCB_PROP_MODE_APPEND, root_screen->root,
+        ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &wid
+    );
+    xcb_change_property(
+        conn, XCB_PROP_MODE_APPEND, root_screen->root,
+        ewmh->_NET_CLIENT_LIST_STACKING,
+        XCB_ATOM_WINDOW, 32, 1, &wid
+    );
 }
 
 // window
@@ -383,20 +403,33 @@ void cello_grab_keys() {
     }
 }
 
+
+xcb_atom_t new_atom(char * atom_name) {
+    xcb_atom_t atom;
+
+    xcb_intern_atom_cookie_t atom_cookie;
+    atom_cookie = xcb_intern_atom(conn, false, 16, atom_name);
+
+    xcb_intern_atom_reply_t * atom_reply;
+    atom_reply = xcb_intern_atom_reply(conn, atom_cookie, NULL);
+
+    if (!atom_reply) {
+        return 0;
+    }
+
+    atom = atom_reply->atom;
+    free(atom_reply);
+
+    return atom;
+}
+
 // atoms
 void cello_init_atoms() {
     /*only one atom for now*/
-    xcb_intern_atom_cookie_t catom =
-            xcb_intern_atom(conn, false, 16, "WM_DELETE_WINDOW");
-    xcb_intern_atom_reply_t *ratom = xcb_intern_atom_reply(conn, catom, NULL);
 
-    if (!ratom) {
-        WM_DELETE_WINDOW = 0;
-        return;
-    }
+    XA_WM_DELETE_WINDOW = new_atom("WM_DELETE_WINDOW");
+    XA_NET_WM_WINDOW_OPACITY = new_atom("_NET_WM_WINDOW_OPACITY");
 
-    WM_DELETE_WINDOW = ratom->atom;
-    ufree(ratom);
 }
 
 // remove
@@ -468,8 +501,6 @@ void cello_setup_all() {
     // pthread_t config_thread;
     // char *config_file;
     // bool config_open;
-
-    int scr;
     current_ds = 0;
 
     atexit(cello_exit);
@@ -478,26 +509,26 @@ void cello_setup_all() {
     // /*get the file status*/
     // config_open = cello_read_config_file(&config_thread, config_file);
 
-    if ((scr = cello_setup_conn()) < 0)
+    if (cello_setup_conn() == false)
         CRITICAL("cello_setup_conn: Could not setup the connection");
 
-    if (!(root_screen = xcb_get_root_screen(conn, scr))) {
+    if (!(root_screen = xcb_get_root_screen(conn, scrno)))
         CRITICAL("cello_setup_all: Setup failed");
-    }
+
 
     NLOG("Screen dimensions %dx%d\n", root_screen->width_in_pixels,
        root_screen->height_in_pixels);
-    
-    init_events();
 
-    conf.focus_gap = 50;
+    init_events();
+    cello_init_config();
 
     ewmh_init(conn);
     cello_init_atoms();
 
-    ewmh_create_desktops(scr, MAX_DESKTOPS);
-    ewmh_change_desktop_names(scr, (char * []) { "1", "II", "III", "IV", "V" }, 5);
-    ewmh_create_ewmh_window(conn, scr);
+    ewmh_create_desktops(scrno, conf.desktop_number);
+    ewmh_change_desktop_names(scrno, (char * []) { "", "", "", "", "" }, 5);
+
+    ewmh_create_ewmh_window(conn, scrno);
 
     cello_goto_desktop(current_ds);
 
@@ -549,14 +580,14 @@ void cello_deploy() {
     run = true;
     while (run) {
         xcb_flush(conn);
-        
+
         FD_ZERO(&rfds);
         FD_SET(sockfd, &rfds);
         FD_SET(connfd, &rfds);
 
         // check which fd is ready
         if (select(max(sockfd, connfd) + 1, &rfds, NULL, NULL, NULL) == -1) continue;
-        
+
         if (FD_ISSET(connfd, &rfds) != 0) {
             while ((event = xcb_poll_for_event(conn)) != NULL) {
                 handle_event(event);
@@ -569,8 +600,8 @@ void cello_deploy() {
             DLOG("Ipc message received");
             int fd, recvlen;
             char recvbuff[BUFSIZ];
-            
-            if ((fd = accept(sockfd, NULL, 0)) == -1) { 
+
+            if ((fd = accept(sockfd, NULL, 0)) == -1) {
                 DLOG("Unable to accept the socket connection");
                 continue;
             }

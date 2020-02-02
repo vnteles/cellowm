@@ -124,7 +124,7 @@ static void on_configure_request(xcb_generic_event_t * event) {
 
 static void on_destroy_notify(xcb_generic_event_t * event) {
     xcb_destroy_notify_event_t* e = (xcb_destroy_notify_event_t*)event;
-    VARDUMP(e->window);
+    // VARDUMP(e->window);
 
     struct window* w;
     if ((w = find_window_by_id(e->window))) {
@@ -152,8 +152,13 @@ static void on_map_request(xcb_generic_event_t * event) {
 
 static void on_property_notify(xcb_generic_event_t * event) {
     xcb_property_notify_event_t* e = (xcb_property_notify_event_t*)event;
+    // VARDUMP(e->atom);
+    // VARDUMP(ewmh->_NET_WM_STRUT_PARTIAL);
 
     if (e->atom == ewmh->_NET_WM_STRUT_PARTIAL){
+        puts("strut partial changed");
+    }
+    if (e->atom == ewmh->_NET_WM_STRUT) {
         puts("strut changed");
     }
     if (e->atom == XCB_ATOM_WM_HINTS) {
@@ -162,10 +167,10 @@ static void on_property_notify(xcb_generic_event_t * event) {
 }
 
 static void on_unmap_notify(xcb_generic_event_t * event) {
-    xcb_unmap_notify_event_t* e = (xcb_unmap_notify_event_t*)event;
+    xcb_unmap_notify_event_t * e = (xcb_unmap_notify_event_t*)event;
 
-    struct window* w;
-    struct window* focused;
+    struct window * w;
+    struct window * focused;
     focused = xcb_get_focused_window();
     if ((w = find_window_by_id(e->window))) {
         if (focused && focused->id == w->id) xcb_unfocus();
@@ -175,14 +180,20 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
 static void on_client_message(xcb_generic_event_t * event) {
     xcb_client_message_event_t * e = (xcb_client_message_event_t *) event;
     // change the desktop message
-    if (e->type == ewmh->_NET_CURRENT_DESKTOP) {
+    if (e->type == ewmh->_NET_CURRENT_DESKTOP || e->type == ewmh->_NET_WM_ACTION_CHANGE_DESKTOP) {
         cello_goto_desktop(e->data.data32[0]);
     }
-    if (e->type == ewmh->_NET_ACTIVE_WINDOW) {
+    else if (e->type == ewmh->_NET_ACTIVE_WINDOW) {
         struct window * w = find_window_by_id(e->window);
         if (!w) return;
 
         xcb_focus_window(w);
+    }
+    else if (e->type == ewmh->_NET_WM_DESKTOP) {
+        struct window * w = find_window_by_id(e->window);
+        if (!w) return;
+
+        xcb_change_window_ds(w, e->data.data32[0]);
     }
 }
 
@@ -224,8 +235,8 @@ void on_mouse_motion(const union action act) {
     if (query_reply == NULL)
         return;
 
-    int16_t 
-        px = query_reply->root_x, 
+    int16_t
+        px = query_reply->root_x,
         py = query_reply->root_y;
 
     /*--- get the target window ---*/
@@ -233,7 +244,7 @@ void on_mouse_motion(const union action act) {
     struct window * target;
     target = find_window_by_id(query_reply->child);
 
-    if (!target) 
+    if (!target)
         return;
 
     struct geometry wingeo = target->geom;
@@ -260,7 +271,7 @@ void on_mouse_motion(const union action act) {
     xcb_grab_pointer_cookie_t pointer_cookie;
     pointer_cookie = xcb_grab_pointer(
         conn, false, root_screen->root,
-        POINTER_MASK, XCB_GRAB_MODE_ASYNC, 
+        POINTER_MASK, XCB_GRAB_MODE_ASYNC,
         XCB_GRAB_MODE_ASYNC, XCB_NONE,
         cursor, XCB_CURRENT_TIME
     );
@@ -273,7 +284,7 @@ void on_mouse_motion(const union action act) {
     if (pointer_reply == NULL) {
         ufree(query_reply);
 
-        if (check_xcursor_support() == false) 
+        if (check_xcursor_support() == false)
             xcb_free_cursor(conn, cursor);
 
         return;
@@ -288,15 +299,15 @@ void on_mouse_motion(const union action act) {
         conn, false, root_screen->root, XCB_CURRENT_TIME,
         XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC
     );
-    
+
     xcb_grab_keyboard_reply_t * keyboard_reply;
     keyboard_reply = xcb_grab_keyboard_reply(conn, keyboard_cookie, NULL);
     if (keyboard_reply == NULL) {
-        
+
         xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
         ufree(query_reply);
 
-        if (check_xcursor_support() == false) 
+        if (check_xcursor_support() == false)
             xcb_free_cursor(conn, cursor);
 
         return;
@@ -335,7 +346,7 @@ void on_mouse_motion(const union action act) {
                         );
 
                         break;
-                
+
                     case RESIZE_WINDOW: {
                             int16_t nw = 0, nh = 0;
 
@@ -353,7 +364,7 @@ void on_mouse_motion(const union action act) {
 
 
                                 // VARDUMP((int)nx);
-                                VARDUMP((int)nw);
+                                // VARDUMP((int)nw);
 
                                 int16_t nx = target->geom.x + target->geom.w - nw;
                                 if (nw > WINDOW_MIN_WIDTH)
@@ -364,7 +375,7 @@ void on_mouse_motion(const union action act) {
 
                             if (nw < 0) nw = target->geom.w;
                             if (nh < 0) nh = target->geom.h;
-                        
+
                             xcb_resize_window(target, (uint16_t)nw, (uint16_t)nh);
                     }
                     xcb_flush(conn);
@@ -379,9 +390,9 @@ void on_mouse_motion(const union action act) {
         ufree(event);
         xcb_flush(conn);
     }
-    
+
     /*----- clean up -----*/
-    if (check_xcursor_support() == false) 
+    if (check_xcursor_support() == false)
         xcb_free_cursor(conn, cursor);
 
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
