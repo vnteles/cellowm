@@ -251,7 +251,7 @@ void cello_unmaximize_window(struct window *w) {
 // desktop
 void cello_goto_desktop(uint32_t d) {
     uint32_t current = cello_get_current_desktop();
-    if (d == current || d > conf.desktop_number)
+    if (d == current || d >= conf.desktop_number)
         return;
 
     struct window * w;
