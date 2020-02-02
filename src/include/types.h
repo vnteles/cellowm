@@ -82,10 +82,10 @@ struct config {
 
     uint8_t border;
 
-    struct key * keys;
-    struct button * buttons;
-
     uint32_t focus_gap;
+
+    uint32_t desktop_number;
+    char * desktop_names;
 
     uint8_t config_ok;
 };
