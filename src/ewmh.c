@@ -108,7 +108,7 @@ void ewmh_create_desktops(int scrno, uint32_t desktop_no) {
 
 bool ewmh_is_special_window(xcb_window_t win) {
     xcb_ewmh_get_atoms_reply_t wt;
-	xcb_atom_t atom;
+    xcb_atom_t atom;
 
     unsigned int i = 0;
 
@@ -140,4 +140,35 @@ bool ewmh_is_special_window(xcb_window_t win) {
 bool ewmh_check_strut(xcb_window_t wid) {
     bool changed = wid;
 	return changed;
+}
+
+void ewmh_handle_strut(xcb_window_t win) {
+    xcb_ewmh_wm_strut_partial_t strut;
+
+    xcb_get_property_cookie_t strut_cookie;
+    strut_cookie = xcb_ewmh_get_wm_strut_partial(ewmh, win);
+
+    uint8_t strut_reply;
+    strut_reply = xcb_ewmh_get_wm_strut_partial_reply(ewmh, strut_cookie, &strut, NULL);
+
+    if (strut_reply == 1) {
+        printf("\n\t====STRUT====\n\ttop: %d\nleft: %d\t\tright: %d\n\tbottom: %d\n", strut.top, strut.left, strut.right, strut.bottom);
+
+        if ( (uint16_t) strut.top < root_screen->height_in_pixels ) {
+            printf("top bar: %d\n", strut.top);
+        }
+
+
+        if ( (uint16_t) strut.bottom < root_screen->height_in_pixels ) {
+            printf("bottom bar: %d\n", strut.bottom);
+        }
+
+        if ((uint16_t) strut.left < root_screen->width_in_pixels ) {
+            printf("left bar: %d\n", strut.left);
+        }
+
+        if ( (uint16_t) strut.right < root_screen->width_in_pixels) {
+            printf("right bar: %d\n", strut.right);
+        }
+    }
 }
