@@ -23,7 +23,9 @@ void xcb_set_root_def_attr() {
 
 #define each_screen ( ; it.rem; xcb_screen_next(&it) )
 xcb_screen_t * xcb_get_root_screen(xcb_connection_t * con, int scr) {
-    xcb_screen_iterator_t it = xcb_setup_roots_iterator( xcb_get_setup(con) );
+    xcb_screen_iterator_t it = xcb_setup_roots_iterator(
+        xcb_get_setup(con)
+    );
 
     /*if the screen number == 0, return it*/
     for each_screen if ( !(scr--) ) return it.data;
@@ -142,14 +144,13 @@ void xcb_raise_focused_window() {
 }
 
 void xcb_change_window_ds(struct window * w, uint32_t ds) {
-    if (!w || w->d == ds) return;
-    if (ds > MAX_DESKTOPS) return;
-
+    if (!w || w->d == ds || ds > MAX_DESKTOPS) return;
 
     cello_unmap_win_from_desktop(w);
     cello_add_window_to_desktop(w, ds);
 
-    xcb_unfocus();
+    if (w == focused)
+        xcb_unfocus();
 }
 
 void xcb_move_window(struct window * w, int16_t x, int16_t y){
@@ -180,8 +181,8 @@ void xcb_move_focused_window(int16_t x, int16_t y) {
 
 /*required verify the window proportions before calling this*/
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
-    if (w->id == root_screen->root || !w) return;
-    
+    if (w->id == root_screen->root || !w)
+        return;
     // if (w->state_mask & CELLO_STATE_MAXIMIZE | CELLO_STATE_FOCUS)
     //     return;
 
@@ -198,7 +199,7 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
         mask |= XCB_CONFIG_WINDOW_HEIGHT;
         values[i++] = height;
     }
-    
+
     w->geom.w = width;
     w->geom.h = height;
 
@@ -238,7 +239,6 @@ xcb_keysym_t xcb_get_keysym_from_keycode(xcb_keycode_t keycode) {
 }
 
 void xcb_close_window(xcb_window_t wid, bool kill) {
-
     if (kill)
         goto kill;
 
@@ -252,7 +252,7 @@ void xcb_close_window(xcb_window_t wid, bool kill) {
     kill = true;
     if (xcb_icccm_get_wm_protocols_reply(conn, cprop, &rprop, NULL) == 1) {
         for (uint32_t i = 0; i < rprop.atoms_len; i++) {
-            if (rprop.atoms[i] == WM_DELETE_WINDOW) {
+            if (rprop.atoms[i] == XA_WM_DELETE_WINDOW) {
                 xcb_send_event(
                     conn, false, wid, XCB_EVENT_MASK_NO_EVENT,
                     (char *) &(xcb_client_message_event_t){
@@ -261,7 +261,7 @@ void xcb_close_window(xcb_window_t wid, bool kill) {
                         .sequence = 0,
                         .window = wid,
                         .type = ewmh->WM_PROTOCOLS,
-                        .data.data32 = {WM_DELETE_WINDOW, XCB_CURRENT_TIME}});
+                        .data.data32 = {XA_WM_DELETE_WINDOW, XCB_CURRENT_TIME}});
                 kill = false;
                 break;
             }

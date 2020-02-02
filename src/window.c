@@ -56,6 +56,8 @@ struct window *window_configure_new(xcb_window_t win) {
     bool has_maximized = false;
     uint32_t current_ds;
 
+    ewmh_handle_strut(win);
+
     if (ewmh_is_special_window(win)) {
         xcb_map_window(conn, win);
         return NULL;
@@ -199,8 +201,10 @@ uint32_t get_window_desktop(xcb_window_t win) {
     xcb_get_property_cookie_t cprop;
     xcb_get_property_reply_t *rprop;
 
-    cprop = xcb_get_property(conn, false, win, ewmh->_NET_WM_DESKTOP,
-                           XCB_GET_PROPERTY_TYPE_ANY, false, sizeof(uint32_t));
+    cprop = xcb_get_property(
+        conn, false, win, ewmh->_NET_WM_DESKTOP,
+        XCB_GET_PROPERTY_TYPE_ANY, false, sizeof(uint32_t)
+    );
 
     ds = 0;
 
@@ -303,7 +307,6 @@ struct window * nextprev_window(bool prev) {
 }
 
 void window_maximize(struct window *w, uint16_t stt) {
-    struct window_list *node;
     uint32_t cds;
 
     if (!w)
@@ -313,41 +316,50 @@ void window_maximize(struct window *w, uint16_t stt) {
         return;
 
     cds = cello_get_current_desktop();
+
     /*cannot maximize a window out of the current desktop*/
     if (!dslist[cds] || w->d != cds)
         return;
 
-    /*unmap other windows before maximize*/
-        for
-            each_window_in_ds(cds) {
-                struct window *data = (struct window *)node->window;
-                if (data->id != w->id)
-                    xcb_unmap_window(conn, data->id);
-            }
+    /*unmap all the windows before maximize*/
+    unmap_desktop(cds);
+    /*map our window again*/
+    xcb_map_window(conn, w->id);
 
-        /*save the original geometry only if the window is at normal state*/
-        if (__HasMask__(w->state_mask, CELLO_STATE_NORMAL)) {
-            w->orig = w->geom;
-            w->tmp_state_mask = w->state_mask;
-        }
+    int16_t
+        move_x = 0,
+        move_y = 0;
 
-        /*unset borders and make window moveable*/
-        __SwitchMask__(w->state_mask, CELLO_STATE_BORDER | CELLO_STATE_FOCUS | CELLO_STATE_MAXIMIZE, CELLO_STATE_NORMAL);
+    uint16_t
+        resize_w = root_screen->width_in_pixels,
+        resize_h = root_screen->height_in_pixels;
 
-        /*configure window before maximize*/
-        xcb_move_window(
-            w,
-            stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0,
-            stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0
+
+    if (stt & CELLO_STATE_FOCUS) {
+        resize_w -= conf.focus_gap*2;
+        resize_h -= conf.focus_gap*2;
+
+        move_x += conf.focus_gap;
+        move_y += conf.focus_gap;
+    }
+
+    /*save the original geometry only if the window is at normal state*/
+    if (w->state_mask & CELLO_STATE_NORMAL) {
+        w->orig = w->geom;
+        w->tmp_state_mask = w->state_mask;
+    }
+    else {
+        /*make window moveable*/
+        __SwitchMask__(
+            w->state_mask,
+            CELLO_STATE_FOCUS | CELLO_STATE_MAXIMIZE,
+            CELLO_STATE_NORMAL
         );
+    }
 
-        xcb_resize_window(
-            w,
-            root_screen->width_in_pixels -
-            (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0),
-            root_screen->height_in_pixels -
-            (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0)
-        );
+    /*configure window before maximize*/
+    xcb_move_window( w, move_x, move_y );
+    xcb_resize_window( w, resize_w, resize_h );
 
         // printf("Resizing with : %d,%d",
         //    root_screen->width_in_pixels -
@@ -359,8 +371,18 @@ void window_maximize(struct window *w, uint16_t stt) {
         __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
 
         /*set wm state fullscreen*/
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
-                                                XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN);
+        xcb_change_property(
+            conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
+            XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN
+        );
+
+        double alpha = 0.7;
+        unsigned long opacity = (unsigned long)(0xFFFFFFFFul * alpha);
+        printf("%ld\n", opacity);
+        xcb_change_property(
+            conn, XCB_PROP_MODE_REPLACE, w->id, XA_NET_WM_WINDOW_OPACITY,
+            XCB_ATOM_CARDINAL, 32, 1, &opacity
+        );
 
         /*update decoration*/
         update_decoration(w);
