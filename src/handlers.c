@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <xcb/xcb_icccm.h>
-#include <xcb/xcb_keysyms.h>
 #include <xcb/randr.h>
 
 #include <string.h>
