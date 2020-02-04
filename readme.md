@@ -14,7 +14,7 @@ some functionalities I want to implement to cello (not necessary on this order)
 - [x] Basic EWMH integration
 - [x] Fullscreen windows
 - [x] Basic bar/dock support - tested polybar, tint2, latte, plank(doesn't display softwares launched) and yabar(crash sometimes)
-- [ ] Temporary message parser
+- [x] Temporary message parser
 - [ ] Focus mode
 - [ ] Multi-monitor support
 - [ ] Reserve space for bars/docks
@@ -22,14 +22,13 @@ some functionalities I want to implement to cello (not necessary on this order)
 - [ ] Fix resize teleports
 - [ ] Integrations with QT (set theme, icon theme, fonts, ...)
 - [ ] EWMH integration
+- [ ] Reparent windows to frame
 
 ## Building
 ### Dependencies
 + xcb
 + xcb-cursor
-+ xcb-ewmh
-+ xcb-icccm
-+ xcb-keysyms
++ xcb-util-wm
 
 ### Building the sources
 Make sure to have the dependencies above, the run:
