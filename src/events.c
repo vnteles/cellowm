@@ -124,14 +124,9 @@ static void on_map_request(xcb_generic_event_t * event) {
 
     w->d = cello_get_current_desktop();
     xcb_map_window(conn, w->id);
-    xcb_map_window(conn, w->frame);
 
     cello_add_window_to_desktop(w, w->d);
     cello_update_wilist_with(w->id);
-
-    int a = w->frame;
-    w->frame = w->id;
-    w->id = a;
 
     xcb_flush(conn);
 }
