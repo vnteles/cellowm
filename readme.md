@@ -1,5 +1,5 @@
 # Cello - A floating window manager smooth as a cello
-[![GitHub release](https://img.shields.io/badge/release-v0.1.1-blue.svg)](https://github.com/vnteles/cellowm/releases)
+[![GitHub release](https://img.shields.io/badge/release-v0.1.2-blue.svg)](https://github.com/vnteles/cellowm/releases)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 ## Description
