@@ -49,6 +49,9 @@ struct window * nextprev_window(bool prev);
 
 /**
  ** @brief update the window decoration
- **/ 
+ **/
 void update_decoration(struct window * w);
 
+
+
+void frame_window(struct window w[static 1]);

@@ -80,16 +80,21 @@ void action_window_move(char ** data) {
 }
 
 void action_window_close(char ** data) {
-    xcb_drawable_t wid;
+    xcb_drawable_t wid = 0;
 
     if (!data[0] || comp_str(data[0], "focused")) {
-        wid = xcb_get_focused_window()->id;
+        struct window  * w = xcb_get_focused_window();
+
+        if (w)
+            wid = w->id;
+
     } else {
         wid = strtol(data[1], NULL, 16);
         if (find_window_by_id(wid) == NULL) {
             return;
         }
     }
+
 
     xcb_close_window(wid, false);
 }
@@ -130,8 +135,8 @@ struct msg_state state[] = {
     }},
     { head_state("window") (struct msg_state[]) {
         { head_act("desktop") &action_window_desktop, .u.s.params = 2 },
-        { head_act("move") &action_window_move, .u.s.params = 2 },
-        { head_act("close")  &action_window_close, .u.s.params = 1},
+        { head_act("move")    &action_window_move,    .u.s.params = 2 },
+        { head_act("close")   &action_window_close,   .u.s.params = 1 },
     }}
     // ...
 };
@@ -160,7 +165,6 @@ static struct msg_state * parse_option(char * opt) {
     for (; opt; start=end, opt+=start, olen-=start-1) {
         endptr = memchr(opt, '.', olen);
         end = endptr ? endptr - opt : olen-1;
-
 
         if (end <= 0) break;
 
@@ -209,8 +213,6 @@ static struct msg_state * parse_option(char * opt) {
         return NULL;
     }
     aux_state = &aux_state[i];
-    VARDUMP(aux_state);
-    VARDUMP(aux_state->u.s.act);
     return aux_state;
 }
 
@@ -220,8 +222,6 @@ void parse_opts(int len, char ** msg) {
 
     action = msg[0];
     opk = OP_NONE;
-
-
 
     //--- get the operation ---
     if (comp_str(action, "set")) {
@@ -256,7 +256,6 @@ void parse_opts(int len, char ** msg) {
                 continue;
 
             stt = parse_option(msg[i]);
-            VARDUMP(stt);
 
             if (!stt)
                 return;
@@ -274,8 +273,6 @@ void parse_opts(int len, char ** msg) {
                     stt_data[j] = msg[i];
                 }
 
-                VARDUMP(stt->u.s.act)
-                VARDUMP(&action_window_move)
                 stt->u.s.act(stt_data);
             }
 

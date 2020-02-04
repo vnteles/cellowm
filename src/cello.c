@@ -298,7 +298,7 @@ end_map:
 #undef get
 
 // window
-void cello_update_wilist_with(xcb_drawable_t wid) {
+void cello_update_wilist_with(xcb_window_t wid) {
     xcb_change_property(
         conn, XCB_PROP_MODE_APPEND, root_screen->root,
         ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &wid
@@ -352,7 +352,6 @@ void cello_unmap_win_from_desktop(struct window *w) {
     w->dlist = NULL;
 
     xcb_unmap_window(conn, w->id);
-    // xcb_unmap_window(conn, w->frame);
 
     cello_update_wilist();
 }
@@ -369,14 +368,7 @@ void cello_unmap_window(struct window *w) {
 #define each_window (window = wilist; window; window = window->next)
 // xcb
 void cello_destroy_window(struct window *w) {
-    struct window_list *window;
-        for each_window {
-                struct window *win = (struct window *)window->window;
-                if (win->id == w->id) {
-                    cello_unmap_window(w);
-                    return;
-                }
-            }
+    cello_unmap_window(w);
 }
 #undef each_window
 
@@ -441,7 +433,8 @@ void cello_init_atoms() {
  * The config file must be passed so it
  * can be freed posteriorly with pthread_join.
  */
-bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
+
+/* bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
     if (!config_thread)
         return false;
     conf.config_ok = false;
@@ -451,7 +444,6 @@ bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
     config_file = ucalloc(baselen, sizeof(*config_file));
     strncpy(config_file, getenv("HOME"), baselen);
 
-    /* --- reallocate the config file to fit it's real size */
     baselen = strlen(config_file);
     if (baselen <3) {
         if (config_file)
@@ -459,11 +451,9 @@ bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
         return false;
     }
     config_file = urealloc(config_file, CONFIG_PATH_LEN + baselen);
-    /* --- concat the config path */
     strcat(config_file, CONFIG_PATH);
 
     NLOG("Looking for %s\n", config_file);
-    /*check if file exists and can be read*/
     if (access(config_file, F_OK | R_OK) != -1) {
         pthread_create(config_thread, NULL, (void *(*)(void *)) & parse_json_config,
                    config_file);
@@ -473,6 +463,8 @@ bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
     ufree(config_file);
     return false;
 }
+ */
+
 
 void cello_reload() {
 

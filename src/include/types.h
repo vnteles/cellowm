@@ -8,6 +8,10 @@
 struct window_list;
 struct window window;
 
+struct coord {
+    int16_t x, y;
+};
+
 struct geometry {
     int16_t x, y;
     uint16_t w, h;

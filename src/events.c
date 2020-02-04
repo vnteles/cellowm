@@ -48,7 +48,6 @@ static void on_button_press(xcb_generic_event_t * event) {
         // ignore if the action is root-only and the event window isn't the root window
         if ((buttons[i].win_mask & ROOT_ONLY) && (e->event != e->root) ) continue;
 
-
         // now we can properly grab the action
         buttons[i].function(buttons[i].action);
     }
@@ -134,18 +133,23 @@ static void on_destroy_notify(xcb_generic_event_t * event) {
 
 static void on_map_request(xcb_generic_event_t * event) {
     xcb_map_request_event_t* e = (xcb_map_request_event_t*)event;
-    struct window* win;
+    struct window* w;
     // skip windows in another desktop
     if (find_window_by_id(e->window) != NULL) return;
 
     // configure window
-    if (!(win = window_configure_new(e->window))) return;
+    if (!(w = window_configure_new(e->window))) return;
 
-    win->d = cello_get_current_desktop();
-    xcb_map_window(conn, win->id);
+    w->d = cello_get_current_desktop();
+    xcb_map_window(conn, w->id);
+    xcb_map_window(conn, w->frame);
 
-    cello_add_window_to_desktop(win, win->d);
-    cello_update_wilist_with(win->id);
+    cello_add_window_to_desktop(w, w->d);
+    cello_update_wilist_with(w->id);
+
+    int a = w->frame;
+    w->frame = w->id;
+    w->id = a;
 
     xcb_flush(conn);
 }
@@ -173,7 +177,8 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
     struct window * focused;
     focused = xcb_get_focused_window();
     if ((w = find_window_by_id(e->window))) {
-        if (focused && focused->id == w->id) xcb_unfocus();
+        if (focused && focused->id == w->id)
+            xcb_unfocus();
     }
 }
 
@@ -212,16 +217,36 @@ void init_events() {
     events[XCB_CLIENT_MESSAGE]         =      on_client_message;
 }
 
-void MOVE_WINDOW_TO_DESKTOP(const union action param) {
-    struct window* f = xcb_get_focused_window();
-    if (!f) return;
-    if (param.i == f->d) return;
 
-    cello_unmap_win_from_desktop(f);
-    cello_add_window_to_desktop(f, param.i);
-    xcb_unfocus();
+
+static void resize_helper(struct window * w, struct geometry w_geometry, struct coord coords[static restrict 2], uint8_t gravity) {
+    #define POINTERC    0
+    #define EVENTC      1
+
+    int16_t nw = 0, nh = 0;
+
+    nh = w_geometry.h + coords[EVENTC].y - coords[POINTERC].y;
+
+    if (gravity == XCB_GRAVITY_NORTH_WEST) {
+        nw = w_geometry.w - coords[EVENTC].x + coords[POINTERC].x;
+
+        int16_t nx = w->geom.x + w->geom.w - nw;
+        if (nw > WINDOW_MIN_WIDTH)
+            xcb_move_window(w, nx, w->geom.y);
+
+    } else {
+        nw = w_geometry.w + coords[EVENTC].x - coords[POINTERC].x;
+    }
+
+
+    if (nw < 0) nw = w->geom.w;
+    if (nh < 0) nh = w->geom.h;
+
+    xcb_resize_window(w, (uint16_t)nw, (uint16_t)nh);
+
+    #undef POINTERC
+    #undef EVENTC
 }
-
 
 void on_mouse_motion(const union action act) {
     uint8_t action = act.i;
@@ -247,7 +272,7 @@ void on_mouse_motion(const union action act) {
     if (!target)
         return;
 
-    struct geometry wingeo = target->geom;
+    struct geometry w_geometry = target->geom;
 
     /*--- generate the cursor ---*/
     // set the default cursor style
@@ -256,10 +281,11 @@ void on_mouse_motion(const union action act) {
     if (action == MOVE_WINDOW) cursor_style = CURSOR_MOVE;
 
     // if resize action, get the resize orientation
-    bool blresize = false;
+    uint8_t gravity = 0;
+
     if (action == RESIZE_WINDOW) {
-        blresize = px < wingeo.x + (wingeo.w / 2);
-        cursor_style = blresize ? CURSOR_BOTTOM_LEFT_CORNER : CURSOR_BOTTOM_RIGHT_CORNER;
+        gravity = px < w_geometry.x + (w_geometry.w / 2) ? XCB_GRAVITY_NORTH_WEST : XCB_GRAVITY_NORTH_EAST;
+        cursor_style = gravity == XCB_GRAVITY_NORTH_WEST ? CURSOR_BOTTOM_LEFT_CORNER : CURSOR_BOTTOM_RIGHT_CORNER;
     }
 
     xcb_cursor_t cursor;
@@ -292,28 +318,6 @@ void on_mouse_motion(const union action act) {
 
     ufree(pointer_reply);
 
-    /*----- grab the keyboard -----*/
-
-    xcb_grab_keyboard_cookie_t keyboard_cookie;
-    keyboard_cookie = xcb_grab_keyboard(
-        conn, false, root_screen->root, XCB_CURRENT_TIME,
-        XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC
-    );
-
-    xcb_grab_keyboard_reply_t * keyboard_reply;
-    keyboard_reply = xcb_grab_keyboard_reply(conn, keyboard_cookie, NULL);
-    if (keyboard_reply == NULL) {
-
-        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
-        ufree(query_reply);
-
-        if (check_xcursor_support() == false)
-            xcb_free_cursor(conn, cursor);
-
-        return;
-    }
-
-    ufree(keyboard_reply);
 
     xcb_raise_window(target->id);
 
@@ -336,52 +340,25 @@ void on_mouse_motion(const union action act) {
             case XCB_MOTION_NOTIFY: {
                 /* prepare to do the action */
                 xcb_motion_notify_event_t * e = (xcb_motion_notify_event_t *) event;
-
-                switch (action) {
-                    case MOVE_WINDOW:
-                        xcb_move_window(
-                            target,
-                            wingeo.x + e->event_x - px,
-                            wingeo.y + e->event_y - py
-                        );
-
-                        break;
-
-                    case RESIZE_WINDOW: {
-                            int16_t nw = 0, nh = 0;
-
-                            #define DIMENSION(win_o, event_o, axis) ((int16_t)(win_o + event_o - axis))
-
-                            nh = DIMENSION(wingeo.h, e->event_y, py);
-                            if (!blresize) {
-                                /*normal right resize*/
-                            nw = DIMENSION(wingeo.w, e->event_x, px);
-
-                            } else {
-                                /*custom left resize*/
-
-                                nw = DIMENSION(wingeo.w, - e->event_x, - px);
-
-
-                                // VARDUMP((int)nx);
-                                // VARDUMP((int)nw);
-
-                                int16_t nx = target->geom.x + target->geom.w - nw;
-                                if (nw > WINDOW_MIN_WIDTH)
-                                    xcb_move_window(target, nx, target->geom.y);
-                            }
-
-                            #undef DIMENSION
-
-                            if (nw < 0) nw = target->geom.w;
-                            if (nh < 0) nh = target->geom.h;
-
-                            xcb_resize_window(target, (uint16_t)nw, (uint16_t)nh);
-                    }
-                    xcb_flush(conn);
-                    break;
+                VARDUMP(action);
+                if (action == RESIZE_WINDOW) {
+                    resize_helper(
+                        target, w_geometry,
+                        (struct coord[]){
+                           {.x = px, .y = py},
+                           {.x = e->event_x,.y = e->event_y}
+                        },
+                        gravity
+                    );
+                } else if (action == MOVE_WINDOW) {
+                    xcb_move_window(
+                        target,
+                        w_geometry.x + e->event_x - px,
+                        w_geometry.y + e->event_y - py
+                    );
                 }
-                break;
+
+                xcb_flush(conn);
             }
             default:
                 break;
@@ -396,5 +373,4 @@ void on_mouse_motion(const union action act) {
         xcb_free_cursor(conn, cursor);
 
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
-    xcb_ungrab_keyboard(conn, XCB_CURRENT_TIME);
 }

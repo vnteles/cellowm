@@ -10,11 +10,6 @@
     __attribute_used__ \
     static char * com_name[] = { com, ##__VA_ARGS__, 0 };
 
-#define CHANGEDESKTOP(k, n) \
-    {XK_##k,MOD,CHANGE_DESKTOP,NONE,{.i = n}}, \
-    {XK_##k,MOD|SHIFT,MOVE_WINDOW_TO_DESKTOP, NONE, {.i=n}}
-    
-
 #define SHIFT XCB_MOD_MASK_SHIFT
 #define ALT XCB_MOD_MASK_1
 #define CONTROL XCB_MOD_MASK_CONTROL
@@ -63,17 +58,6 @@ static struct key keys[] = {
     {XK_b,                 MOD,           TOGGLE_BORDER,   NO_ROOT,          {}                    },
     {XK_f,                 MOD,           TOGGLE_MAXIMIZE, NO_ROOT,          {}                    },
     {XK_m,                 MOD,           TOGGLE_FOCUS_MODE,  NO_ROOT,          {}                    },
-
-    CHANGEDESKTOP(1, 0),
-    CHANGEDESKTOP(2, 1),
-    CHANGEDESKTOP(3, 2),
-    CHANGEDESKTOP(4, 3),
-    CHANGEDESKTOP(5, 4),
-    CHANGEDESKTOP(6, 5),
-    CHANGEDESKTOP(7, 6),
-    CHANGEDESKTOP(8, 7),
-    CHANGEDESKTOP(9, 8),
-    CHANGEDESKTOP(0, 9),
 };
 
 #endif
