@@ -12,24 +12,6 @@
 #define each_button \
     (unsigned int i = 0; i < (sizeof(buttons) / sizeof(*buttons)); i++)
 
-
-//temporary
-static void on_key_press(xcb_generic_event_t * event) {
-    xcb_key_press_event_t* e = (xcb_key_press_event_t*)event;
-
-    xcb_keysym_t keysym = xcb_get_keysym_from_keycode(e->detail);
-
-    uint16_t i;
-    unsigned int keys_len = sizeof(keys) / sizeof(*keys);
-    for (i = 0; i < keys_len; i++) {
-        if (!keys[i].function || keysym != keys[i].key) continue;
-        else if (keys[i].mod_mask != e->state) continue;
-
-        keys[i].function(keys[i].action);
-        break;
-    }
-}
-
 static void on_button_press(xcb_generic_event_t * event) {
     // puts("button");
     xcb_button_press_event_t* e = (xcb_button_press_event_t*)event;
@@ -205,7 +187,6 @@ static void on_client_message(xcb_generic_event_t * event) {
 void (*events[0x7f])(xcb_generic_event_t *);
 
 void init_events() {
-    events[XCB_KEY_PRESS]              =      on_key_press;
     events[XCB_BUTTON_PRESS]           =      on_button_press;
     events[XCB_ENTER_NOTIFY]           =      on_enter_notify;
     events[XCB_CONFIGURE_NOTIFY]       =      on_configure_notify;

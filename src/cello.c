@@ -372,29 +372,6 @@ void cello_destroy_window(struct window *w) {
 }
 #undef each_window
 
-void cello_grab_keys() {
-
-    /*ungrab any key that for some reason was grabbed*/
-    xcb_ungrab_key(conn, XCB_GRAB_ANY, root_screen->root, XCB_MOD_MASK_ANY);
-    unsigned int i, j;
-    const unsigned int keys_len = sizeof(keys) / sizeof(*keys);
-    for (i = 0; i < keys_len; i++) {
-        xcb_keycode_t *keycode = xcb_get_keycode_from_keysym(keys[i].key);
-        if (!keycode)
-            return;
-
-        for (j = 0; keycode[j]; j++) {
-            xcb_grab_key(conn, true, root_screen->root, keys[i].mod_mask, keycode[j],
-                   XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-            xcb_grab_key(conn, true, root_screen->root,
-                   keys[i].mod_mask | XCB_MOD_MASK_LOCK, keycode[j],
-                   XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-        }
-
-        ufree(keycode);
-    }
-}
-
 
 xcb_atom_t new_atom(char * atom_name) {
     xcb_atom_t atom;
@@ -525,9 +502,6 @@ void cello_setup_all() {
     cello_goto_desktop(current_ds);
 
     NLOG("Initializing %s\n", WMNAME);
-
-    // temporary
-    cello_grab_keys();
 
     xcb_set_root_def_attr();
     cello_setup_cursor();

@@ -36,29 +36,3 @@ static struct button buttons[] = {
 };
 
 #endif
-
-#ifndef NO_KEYS
-
-#include <X11/keysymdef.h>
-#include <X11/keysym.h>
-
-/*user changes here*/
-static struct key keys[] = {
-    /* { key, modifier, function, window modifier, param [ config / command ]  */
-    //reload wm
-    { XK_r,                MOD|SHIFT,     RELOAD_CONFIG,   NONE,             {}                      },
-
-    //center window
-    { XK_c,                MOD,           CENTER_WINDOW,   NO_ROOT,          {.i = NONE}           },
-    //center window on x axis
-    { XK_x,                MOD,           CENTER_WINDOW,   NO_ROOT,          {.i = X}              },
-    //center window on y axis
-    { XK_y,                MOD,           CENTER_WINDOW,   NO_ROOT,          {.i = Y}              },
-
-    {XK_b,                 MOD,           TOGGLE_BORDER,   NO_ROOT,          {}                    },
-    {XK_f,                 MOD,           TOGGLE_MAXIMIZE, NO_ROOT,          {}                    },
-    {XK_m,                 MOD,           TOGGLE_FOCUS_MODE,  NO_ROOT,          {}                    },
-};
-
-#endif
-

@@ -36,7 +36,6 @@ void handle_event(xcb_generic_event_t* e) {
         xcb_flush(conn);
         return;
     }
-    // printf("%d\n", evcode);
 }
 
 /**
@@ -45,7 +44,7 @@ void handle_event(xcb_generic_event_t* e) {
  ** @param msg_len the length of tre message
  ** @param fd the file descriptor of the client
  **/
-void handle_message(char * msg, int msg_len, int fd) {
+void handle_message(char * msg, int msg_len, __attribute__((unused)) int fd) {
     //TODO: send error message back to the fd
 
     int arg_len = 0, j = 10;
