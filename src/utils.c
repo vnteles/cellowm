@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #include "log.h"
 
@@ -10,7 +11,7 @@ void * ucalloc(uint16_t qnt, uint16_t size);
 void * urealloc(void * ptr, uint16_t size);
 
 #define mem_error() \
-    { CRITICAL("{!} Unexpected Memory error"); }
+    { ELOG("{!} Unexpected Memory error"); exit(EFAULT); }
 
 void * umalloc(uint16_t size) {
     void * ptr;

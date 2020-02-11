@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "types.h"
+#include "desktop.h"
 
 #define NONE 0x0
 

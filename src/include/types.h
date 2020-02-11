@@ -1,8 +1,8 @@
 #pragma once
 
 #include <xcb/xcb.h>
-#include <xcb/xcb_keysyms.h>
 #include "utils.h"
+#include "desktop.h"
 
 
 struct window_list;
@@ -71,11 +71,6 @@ struct button {
     MOD_HEADER;
 };
 
-struct key {
-    const xcb_keysym_t key;
-    MOD_HEADER;
-};
-
 
 struct config {
     uint32_t inner_border;
@@ -89,7 +84,7 @@ struct config {
     uint32_t focus_gap;
 
     uint32_t desktop_number;
-    char * desktop_names;
+    char * desktop_names[MAX_DESKTOPS];
 
     uint8_t config_ok;
 };

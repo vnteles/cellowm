@@ -95,7 +95,15 @@ void cello_init_config() {
     //solid green
     conf.outer_border_color = 0xff000000 | 0x00ff00;
 
-    conf.desktop_number = 5;
+    conf.desktop_number = DEFAULT_DESKTOP_NUMBER;
+
+    for (uint32_t i = 0; i < DEFAULT_DESKTOP_NUMBER; i++) {
+        size_t len = strlen(DEFAULT_DESKTOP_NAMES[i]);
+        conf.desktop_names[i] = umalloc(len+1);
+
+        memcpy(conf.desktop_names[i], DEFAULT_DESKTOP_NAMES[i], len);
+        conf.desktop_names[i][len] = '\0';
+    }
 
     conf.config_ok = false;
 }
@@ -104,12 +112,10 @@ void cello_init_config() {
 void cello_clean() {
     DLOG("Cleaning up..");
     if (wilist) {
-        struct window_list *node;
+        struct window_list *node = wilist;
 
-        for (node = wilist; node; node = node->next) {
-
-            struct window *w = (struct window *)node->window;
-            xcb_unmap_window(conn, w->id);
+        for (node = wilist; node && node->window; node = node->next) {
+            xcb_unmap_window(conn, node->window->id);
             free_node(&wilist, node);
         }
 
@@ -136,12 +142,6 @@ __always_inline static void cello_setup_cursor() {
     init_cursors();
     dynamic_cursor_set(CURSOR_POINTER);
 }
-
-
-// xcb
-
-// window
-
 
 // desktop
 uint32_t cello_get_current_desktop() {
@@ -401,48 +401,6 @@ void cello_init_atoms() {
 
 }
 
-// remove
-
-// confparse
-
-/* Return true if the thread could start,
- * so we can handle the pthread_join.
- * The config file must be passed so it
- * can be freed posteriorly with pthread_join.
- */
-
-/* bool cello_read_config_file(pthread_t *config_thread, char *config_file) {
-    if (!config_thread)
-        return false;
-    conf.config_ok = false;
-
-    uint8_t baselen = 25;
-
-    config_file = ucalloc(baselen, sizeof(*config_file));
-    strncpy(config_file, getenv("HOME"), baselen);
-
-    baselen = strlen(config_file);
-    if (baselen <3) {
-        if (config_file)
-            ufree(config_file);
-        return false;
-    }
-    config_file = urealloc(config_file, CONFIG_PATH_LEN + baselen);
-    strcat(config_file, CONFIG_PATH);
-
-    NLOG("Looking for %s\n", config_file);
-    if (access(config_file, F_OK | R_OK) != -1) {
-        pthread_create(config_thread, NULL, (void *(*)(void *)) & parse_json_config,
-                   config_file);
-        return true;
-    }
-    DLOG("Configuration file not found");
-    ufree(config_file);
-    return false;
-}
- */
-
-
 void cello_reload() {
 
 /* dev reload can reload the execution, so we can test changes on each compile
@@ -495,7 +453,7 @@ void cello_setup_all() {
     cello_init_atoms();
 
     ewmh_create_desktops(scrno, conf.desktop_number);
-    ewmh_change_desktop_names(scrno, (char * []) { "", "", "", "", "" }, 5);
+    ewmh_change_desktop_names_list(scrno, conf.desktop_number, conf.desktop_names);
 
     ewmh_create_ewmh_window(conn, scrno);
 

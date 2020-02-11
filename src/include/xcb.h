@@ -46,7 +46,5 @@ void xcb_move_focused_window(int16_t x, int16_t y);
 
 void xcb_resize_window(struct window * w, uint16_t width, uint16_t height);
 void xcb_resize_focused_window(uint16_t width, uint16_t height);
-xcb_keycode_t * xcb_get_keycode_from_keysym(xcb_keysym_t keysym);
-xcb_keysym_t xcb_get_keysym_from_keycode(xcb_keycode_t keycode);
 
 void xcb_close_window(xcb_window_t wid, bool kill);

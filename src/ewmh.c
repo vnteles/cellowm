@@ -66,31 +66,39 @@ void ewmh_create_ewmh_window(xcb_connection_t * conn, int scrno) {
     xcb_flush(conn);
 }
 
-void ewmh_change_desktop_number(uint8_t scrno, uint32_t desktop_no){
+void ewmh_change_desktop_number(int scrno, uint32_t desktop_no){
     xcb_ewmh_set_number_of_desktops(ewmh, scrno, desktop_no);
 }
 
-void ewmh_change_desktop_names(uint8_t scrno, char * names[MAX_DESKTOPS], int names_len) {
-    uint16_t allocsize = 5;
+void ewmh_change_desktop_names(int scrno, int len, char * names) {
+    if (!names || len == 0)
+        return;
+
+    xcb_ewmh_set_desktop_names(ewmh, scrno, len, names);
+}
+
+void ewmh_change_desktop_names_list(int scrno, int namelist_len, char * namelist[static MAX_DESKTOPS]) {
+    size_t allocsize = 10;
     char * desk_names = umalloc(allocsize);
+
     int len = 0;
 
-    for (int i = 0; i < names_len; i++) {
-        int tmp_len = strlen(names[i]);
+    for (int i = 0; i < namelist_len; i++) {
+        size_t tmp_len = strlen(namelist[i]);
 
-        if (len+tmp_len >= allocsize) {
+        if (allocsize < len+tmp_len) {
             allocsize*=2;
-            urealloc(desk_names, allocsize);
+            desk_names = realloc(desk_names, allocsize);
         }
 
-        strcpy(desk_names+len, names[i]);
+        strcpy(&desk_names[len], namelist[i]);
 
         len+=tmp_len;
         desk_names[len++] = '\0';
     }
 
-    xcb_ewmh_set_desktop_names(ewmh, scrno, len, desk_names);
-    ufree(desk_names);
+    ewmh_change_desktop_names(scrno, len, desk_names);
+    free(desk_names);
 }
 
 void ewmh_change_to_desktop(int scrno, uint32_t desktop){

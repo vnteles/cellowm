@@ -15,9 +15,7 @@
 #define _outer_border 2
 #define _outer_border_color 3
 #define _border 4
-#define _keys 5
-#define _buttons 6
-#define _focus_gap 7
+#define _focus_gap 5
 
 #define uknw -1
 
@@ -49,7 +47,7 @@ static bool set_inner_border(struct token * tok){
     return false;
 }
 static bool set_inner_border_color(struct token * tok){
-    if (tok->tok_type == JSMN_STRING) { 
+    if (tok->tok_type == JSMN_STRING) {
         conf.inner_border_color = getncolor(tok->val, strlen(tok->val));
         if (conf.inner_border_color)
             return true;
@@ -65,7 +63,7 @@ static bool set_outer_border(struct token * tok){
     return false;
 }
 static bool set_outer_border_color(struct token * tok){
-    if (tok->tok_type == JSMN_STRING) { 
+    if (tok->tok_type == JSMN_STRING) {
         conf.outer_border_color = getncolor(tok->val, strlen(tok->val));
         if (conf.outer_border_color)
             return true;
@@ -89,16 +87,6 @@ static bool set_focus_gap(struct token * tok) {
     }
     return false;
 }
-
-/* todo: implement */
-static bool set_keys(struct token * tok __attribute((unused))){
-    return false;
-}
-/* todo: implement */
-static bool set_buttons(struct token * tok __attribute((unused))){
-    return false;
-}
-
 
 bool (*tok_handlers[])(struct token *) = {
     #define xmacro(o) set_##o,
@@ -145,7 +133,7 @@ void parse_json_config(void * vconfig_file) {
 
     fp = fopen((char *)vconfig_file, "r");
     // check if the file was moved or deleted after the access() check
-    if (!fp) { 
+    if (!fp) {
         ELOG("parse_json_config Config file not found");
         return;
     }
@@ -153,12 +141,12 @@ void parse_json_config(void * vconfig_file) {
     fseek(fp, 0, SEEK_END);
     config_size = ftell(fp);
     rewind(fp);
-    
+
     config = umalloc(config_size * sizeof(char));
 
     uint32_t read = fread(config, sizeof(char), config_size, fp);
-    if (read != config_size) { 
-        ELOG("Could not properly read the configuration file.\nLeaving the configuration phase"); 
+    if (read != config_size) {
+        ELOG("Could not properly read the configuration file.\nLeaving the configuration phase");
         return;
     }
 
@@ -172,13 +160,13 @@ void parse_json_config(void * vconfig_file) {
     jsmn_init(&p);
     int32_t size = jsmn_parse(&p, config, config_size, t, sizeof(t)/sizeof(*t));
 
-    if (size < 0) { 
+    if (size < 0) {
         ELOG("Failed to parse the config: %d\n", size);
         return;
     }
     if (!size || t[0].type != JSMN_OBJECT) {
         ELOG("Invalid config file.\n");
-        return; 
+        return;
     }
 
     uint32_t i;
@@ -195,9 +183,9 @@ void parse_json_config(void * vconfig_file) {
                 ufree(tok.val);
             return;
         };
-        
+
         if (tok.val)
-            ufree(tok.val); 
+            ufree(tok.val);
         i = i+1;
     }
 

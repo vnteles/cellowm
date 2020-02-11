@@ -316,7 +316,6 @@ void on_mouse_motion(const union action act) {
             case XCB_MOTION_NOTIFY: {
                 /* prepare to do the action */
                 xcb_motion_notify_event_t * e = (xcb_motion_notify_event_t *) event;
-                VARDUMP(action);
                 if (action == RESIZE_WINDOW) {
                     resize_helper(
                         target, w_geometry,

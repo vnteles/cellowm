@@ -31,11 +31,11 @@ void bring_to_head(struct window_list ** list, struct window_list * node){
         node->prev->next = NULL;
         if (node->next)
             node->next->prev = NULL;
-        
+
         node->next = *list;
         node->next->prev = node;
         node->prev = NULL;
-        
+
         *list = node;
     }
 }
@@ -43,27 +43,35 @@ void bring_to_head(struct window_list ** list, struct window_list * node){
 struct window_list * pop_node(struct window_list ** list, struct window_list * node) {
     if (!node || !list || !*list) return NULL;
 
-    struct window_list * aux = *list;
+    if (node == list[0]){
+        // popping the first element
 
-    if (node == aux){
-        *list = node->next;
-        if (node->next)
-            node->next->prev = NULL;
+        // advance one element
+        list[0] = node->next;
+        // set the head prev element to null
+        if (list[0])
+            list[0]->prev = NULL;
+
     } else {
+
         node->prev->next = node->next;
         if (node->next)
             node->next->prev = node->prev;
     }
+
+    if (!node) puts("bacatasso, n era pra isso ta acontecendo");
 
     return node;
 }
 
 void free_node(struct window_list ** list, struct window_list * node) {
     if (!node || !list || !*list) return;
-    if (node->window)
-        ufree(node->window);
-    node->window = NULL;
-    struct window_list * pnode = pop_node(list, node);
 
+    if (node->window != NULL)
+        ufree(node->window);
+
+    puts("o");
+    struct window_list * pnode = pop_node(list, node);
+    puts("ba");
     if (pnode) ufree(pnode);
 }

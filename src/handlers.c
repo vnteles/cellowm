@@ -1,5 +1,3 @@
-
-#define NO_KEYS
 #define NO_BUTTONS
 
 #include "handlers.h"
@@ -60,7 +58,7 @@ void handle_message(char * msg, int msg_len, __attribute__((unused)) int fd) {
 
         if (arg_len == j) {
             j *= 2;
-            urealloc(args, sizeof(char *) * j);
+            args = realloc(args, sizeof(char *) * j);
         }
     }
 

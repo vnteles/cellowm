@@ -144,7 +144,7 @@ void xcb_raise_focused_window() {
 }
 
 void xcb_change_window_ds(struct window * w, uint32_t ds) {
-    if (!w || w->d == ds || ds > MAX_DESKTOPS) return;
+    if (!w || w->d == ds || ds > conf.desktop_number) return;
 
     cello_unmap_win_from_desktop(w);
     cello_add_window_to_desktop(w, ds);
@@ -213,28 +213,6 @@ void xcb_resize_focused_window(uint16_t width, uint16_t height) {
     if (!focused) return;
 
     xcb_resize_window(focused, width, height);
-}
-
-xcb_keycode_t * xcb_get_keycode_from_keysym(xcb_keysym_t keysym) {
-    xcb_key_symbols_t * keysyms;
-    if (!(keysyms = xcb_key_symbols_alloc(conn)))
-        return NULL;
-
-    xcb_keycode_t * keycode = xcb_key_symbols_get_keycode(keysyms, keysym);
-
-    xcb_key_symbols_free(keysyms);
-    return keycode;
-}
-
-xcb_keysym_t xcb_get_keysym_from_keycode(xcb_keycode_t keycode) {
-    xcb_key_symbols_t * keysyms;
-    if (!(keysyms = xcb_key_symbols_alloc(conn)))
-        return 0;
-
-    xcb_keysym_t keysym = xcb_key_symbols_get_keysym(keysyms, keycode, 0);
-
-    xcb_key_symbols_free(keysyms);
-    return keysym;
 }
 
 void xcb_close_window(xcb_window_t wid, bool kill) {
