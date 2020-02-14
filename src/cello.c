@@ -97,9 +97,10 @@ void cello_init_config() {
 
     conf.desktop_number = DEFAULT_DESKTOP_NUMBER;
 
+    // doing that way so we can free every config change, then restore it's defaults if needed
     for (uint32_t i = 0; i < DEFAULT_DESKTOP_NUMBER; i++) {
         size_t len = strlen(DEFAULT_DESKTOP_NAMES[i]);
-        conf.desktop_names[i] = umalloc(len+1);
+        conf.desktop_names[i] = umalloc(len);
 
         memcpy(conf.desktop_names[i], DEFAULT_DESKTOP_NAMES[i], len);
         conf.desktop_names[i][len] = '\0';

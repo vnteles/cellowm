@@ -144,7 +144,7 @@ void xcb_raise_focused_window() {
 }
 
 void xcb_change_window_ds(struct window * w, uint32_t ds) {
-    if (!w || w->d == ds || ds > conf.desktop_number) return;
+    if (!w || w->d == ds || ds >= conf.desktop_number) return;
 
     cello_unmap_win_from_desktop(w);
     cello_add_window_to_desktop(w, ds);

@@ -6,10 +6,6 @@
 
 #include "log.h"
 
-void * umalloc(uint16_t size);
-void * ucalloc(uint16_t qnt, uint16_t size);
-void * urealloc(void * ptr, uint16_t size);
-
 #define mem_error() \
     { ELOG("{!} Unexpected Memory error"); exit(EFAULT); }
 
@@ -25,13 +21,6 @@ void * umalloc(uint16_t size) {
 void * ucalloc(uint16_t qnt, uint16_t size) {
     void * ptr;
     if ( (ptr = calloc(qnt, size)) )  return ptr;
-    else mem_error();
-
-    return NULL;
-}
-
-void * urealloc(void * ptr, uint16_t size) {
-    if ( (ptr = realloc(ptr, size)) )  return ptr;
     else mem_error();
 
     return NULL;
@@ -69,7 +58,10 @@ long getncolor(const char * hex, int n) {
         hex_group[0] = hex_group[1] = hex[0]; /*r*/
         hex_group[2] = hex_group[3] = hex[1]; /*g*/
         hex_group[4] = hex_group[5] = hex[2]; /*b*/
-    } else strncpy(hex_group, hex, 6); /* handle colors in #rrggbb format */
+    } else {
+        /* handle colors in #rrggbb format */
+        strncpy(hex_group, hex, 6);
+    }
 
     //todo: check if the conversion was successful
     return (ulhex | strtol(hex_group, NULL, 16));

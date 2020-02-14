@@ -39,7 +39,6 @@
 
 void * umalloc(uint16_t size);
 void * ucalloc(uint16_t qnt, uint16_t size);
-void * urealloc(void * ptr, uint16_t size);
 
 #define ufree(ptr) { free(ptr); ptr = NULL; }
 

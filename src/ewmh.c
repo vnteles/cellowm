@@ -110,6 +110,9 @@ void ewmh_change_to_desktop(int scrno, uint32_t desktop){
 
 void ewmh_create_desktops(int scrno, uint32_t desktop_no) {
     ewmh_change_desktop_number(scrno, desktop_no);
+
+    xcb_ewmh_set_desktop_geometry(ewmh, scrno, root_screen->white_pixel, root_screen->height_in_pixels);
+
     ewmh_change_to_desktop(scrno, 0);
 }
 
