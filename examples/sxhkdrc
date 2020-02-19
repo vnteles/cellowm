@@ -1,0 +1,62 @@
+  #----------------------#
+ #---  cello hotkeys ---#
+#----------------------#
+
+# quit/restart cello
+super + shift + {q,r}
+	celloc wm {logout,reload}
+
+# close or kill
+super + {q,k}
+	celloc window.{close,kill}
+
+# focus or send to the given desktop
+super + {_,shift + }{1-9,0}
+	celloc {desktop.current,window.desktop} '{0-9,10}'
+
+# center the focused window
+super + c
+	celloc window.move center
+
+  #---------------#
+ #--- hotkeys ---#
+#---------------#
+
+# terminal
+super + Return
+	alacritty
+
+# menu
+super + @space
+	rofi -show drun
+
+# sxhkd reload
+super + Escape
+	pkill -USR1 -x sxhkd
+
+# polybar reload
+super + r
+	~/.config/polybar/launch.sh
+
+# print screen
+Print
+	scrot 'Screenshot_%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/pics/screenshots' && \
+   	notify-send --icon=gtk-info "Screenshot taken"
+
+
+alt + @Print
+  scrot -u 'Screenshot_%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/pics/screenshots/' && \
+  notify-send --icon=gtk-info "Screenshot taken"
+
+
+# Volume down
+super + shift + Next
+    amixer set Master 1-
+
+# Volume up
+super + shift + Prior
+    amixer set Master 1+
+
+# Notification center
+super + n
+    kill -s USR1 $(pidof deadd-notification-center)
