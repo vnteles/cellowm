@@ -13,18 +13,28 @@
 
 struct window_list *wilist;
 
-struct window *find_window_by_id(xcb_drawable_t wid) {
-    struct window *win;
+static struct window * find_window(xcb_drawable_t id, uint8_t byid) {
+    struct window *w;
     struct window_list *list;
 
     for (list = wilist; list; list = list->next) {
-        win = (struct window *)list->window;
-        if (win->id == wid) {
-            return win;
+        w = (struct window *)list->window;
+
+        if ((byid && w->id == id) || (!byid && w->frame == id)){
+            return w;
         }
+
     }
 
-        return NULL;
+    return NULL;
+}
+
+struct window * find_window_by_id(xcb_drawable_t wid) {
+    return find_window(wid, true);
+}
+
+struct window * find_window_by_frame(xcb_drawable_t fid) {
+    return find_window(fid, false);
 }
 
 static struct geometry get_geometry(xcb_drawable_t wid) {
@@ -47,6 +57,28 @@ static struct geometry get_geometry(xcb_drawable_t wid) {
     geometry.depth = geometry_reply->depth;
 
     return geometry;
+}
+
+void generate_frame(struct window * w) {
+    w->frame = xcb_generate_id(conn);
+
+    xcb_create_window(conn, root_screen->root_depth,
+        w->frame, root_screen->root, w->geom.x,
+        w->geom.y, w->geom.w, w->geom.h, 0,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT,
+        root_screen->root_visual,
+        XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK,
+        (uint32_t[]){
+            0xff00ff00,
+            false,
+            XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_ENTER_WINDOW
+        }
+    );
+
+    xcb_change_save_set(conn, XCB_CHANGE_SAVE_SET, w->frame);
+    // DLOG("Frame %0x%X generated for window 0x%X\n", w->frame, w->id);
+    xcb_reparent_window(conn, w->id, w->frame, 0, 0);
+
 }
 
 struct window *window_configure_new(xcb_window_t win) {
@@ -79,10 +111,10 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w->id = win;
 
-    xcb_change_window_attributes_checked(
-        conn, w->id, XCB_CW_EVENT_MASK,
-        (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW}
-    );
+    // xcb_change_window_attributes_checked(
+    //     conn, w->id, XCB_CW_EVENT_MASK,
+    //     (uint32_t[]){XCB_EVENT_MASK_ENTER_WINDOW}
+    // );
 
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, w->id);
 
@@ -98,17 +130,12 @@ struct window *window_configure_new(xcb_window_t win) {
 
     w->state_mask = CELLO_STATE_NORMAL;
     w->state_mask |= conf.border ? CELLO_STATE_BORDER : 0;
-
-    /*create the frame*/
-
-    /*change the parent of the struct window*/
-    // xcb_reparent_window(conn, w->id, w->frame, 0, 0);
-
     if (w->geom.x < 1 && w->geom.y < 1)
         center_window(w);
 
-    xcb_flush(conn);
+    generate_frame(w);
 
+    xcb_flush(conn);
     return w;
 }
 
@@ -248,8 +275,7 @@ void window_hijack() {
         if ((rattr = xcb_get_window_attributes_reply(conn, cattr, NULL)) == NULL)
             continue;
 
-        if (!rattr->override_redirect &&
-                rattr->map_state == XCB_MAP_STATE_VIEWABLE) {
+        if (!rattr->override_redirect && rattr->map_state == XCB_MAP_STATE_VIEWABLE) {
 
             w = window_configure_new(children[i]);
 
@@ -259,9 +285,11 @@ void window_hijack() {
 
                 /*add window and draw the frame*/
                 cello_add_window_to_desktop(w, get_window_desktop(w->id));
+                xcb_map_window(conn, w->frame);
                 // xcb_map_window(conn, w->frame);
 
                 update_decoration(w);
+                // XCB_CW_
 
                 cello_update_wilist_with(w->id);
                 puts("------new window added");
@@ -349,7 +377,7 @@ void window_maximize(struct window *w, uint16_t stt) {
         w->tmp_state_mask = w->state_mask;
     }
     else {
-        /*make window moveable*/
+        /*let window moveable*/
         __SwitchMask__(
             w->state_mask,
             CELLO_STATE_FOCUS | CELLO_STATE_MAXIMIZE,
@@ -361,33 +389,19 @@ void window_maximize(struct window *w, uint16_t stt) {
     xcb_move_window( w, move_x, move_y );
     xcb_resize_window( w, resize_w, resize_h );
 
-        // printf("Resizing with : %d,%d",
-        //    root_screen->width_in_pixels -
-        //        (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2,
-        //    root_screen->height_in_pixels -
-        //        (stt & CELLO_STATE_FOCUS ? conf.focus_gap : 0) * 2);
+    /*set maximized state*/
+    __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
 
-        /*set maximized state*/
-        __SwitchMask__(w->state_mask, CELLO_STATE_NORMAL, stt);
+    /*set wm state to fullscreen*/
+    xcb_change_property(
+        conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
+        XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN
+    );
 
-        /*set wm state fullscreen*/
-        xcb_change_property(
-            conn, XCB_PROP_MODE_REPLACE, w->id, ewmh->_NET_WM_STATE,
-            XCB_ATOM_ATOM, 32, 1, &ewmh->_NET_WM_STATE_FULLSCREEN
-        );
+    /*update decoration*/
+    update_decoration(w);
 
-        double alpha = 0.7;
-        unsigned long opacity = (unsigned long)(0xFFFFFFFFul * alpha);
-        printf("%ld\n", opacity);
-        xcb_change_property(
-            conn, XCB_PROP_MODE_REPLACE, w->id, XA_NET_WM_WINDOW_OPACITY,
-            XCB_ATOM_CARDINAL, 32, 1, &opacity
-        );
+    bring_to_head(&dslist[cello_get_current_desktop()], w->dlist);
 
-        /*update decoration*/
-        update_decoration(w);
-
-        bring_to_head(&dslist[cello_get_current_desktop()], w->dlist);
-
-        xcb_flush(conn);
+    xcb_flush(conn);
 }

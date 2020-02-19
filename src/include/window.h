@@ -9,10 +9,17 @@ extern struct window_list * wilist;
 
 /**
  ** @brief find a window from the client list by passing an id
- ** @param wid the id of the window you're lookin for
+ ** @param wid the id of the window you're looking for
  ** @return the window if id matches, or null if the window is not handled by the wm nor doesn't exists
  **/
 struct window *find_window_by_id(xcb_drawable_t wid);
+
+/**
+ ** @brief find a window from the client list by passing the frame id
+ ** @param fid the id of the frame you're looking for
+ ** @return the window if id matches, or null if the window is not handled by the wm nor doesn't exists
+ **/
+struct window * find_window_by_frame(xcb_drawable_t fid);
 
 /**
  ** @brief move the window to the center of the screen

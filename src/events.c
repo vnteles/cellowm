@@ -46,10 +46,27 @@ static void on_enter_notify(xcb_generic_event_t * event) {
     struct window* w;
 
     focused = xcb_get_focused_window();
-    if (focused && e->event == focused->id) return;
 
-    /*don't focus on non mapped windows*/
-    if (!(w = find_window_by_id(e->event))) return;
+
+/*     puts("====");
+
+    VARDUMP(e->child);
+    VARDUMP(e->event);
+
+    if (focused) {
+        // VARDUMP(focused->frame);
+        printf("0x%X\n", focused->frame);
+        printf("0x%X\n", focused->id);
+    }
+
+    puts("===="); */
+
+
+    // already focused on window
+    if (focused && e->child == focused->id) return;
+
+    // ignore focus for no mapped or no handled windows
+    if (!(w = find_window_by_id(e->child))) return;
 
     xcb_focus_window(w);
     xcb_flush(conn);
@@ -59,7 +76,7 @@ static void on_configure_notify(xcb_generic_event_t * event) {
     NLOG("Configure Notify event received");
     xcb_configure_notify_event_t * e = (xcb_configure_notify_event_t *) event;
 
-    if (e->window == root_screen->root) {
+    if (e->event == root_screen->root) {
         puts("changed something");
         #define applyifchanged(a, b) a = a != b ? b : a
 
@@ -105,10 +122,10 @@ static void on_configure_request(xcb_generic_event_t * event) {
 
 static void on_destroy_notify(xcb_generic_event_t * event) {
     xcb_destroy_notify_event_t* e = (xcb_destroy_notify_event_t*)event;
-    // VARDUMP(e->window);
 
     struct window* w;
     if ((w = find_window_by_id(e->window))) {
+        xcb_destroy_window(conn, w->frame);
         cello_destroy_window(w);
     }
 }
@@ -124,6 +141,7 @@ static void on_map_request(xcb_generic_event_t * event) {
 
     w->d = cello_get_current_desktop();
     xcb_map_window(conn, w->id);
+    xcb_map_window(conn, w->frame);
 
     cello_add_window_to_desktop(w, w->d);
     cello_update_wilist_with(w->id);
@@ -154,6 +172,7 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
     struct window * focused;
     focused = xcb_get_focused_window();
     if ((w = find_window_by_id(e->window))) {
+        xcb_unmap_window(conn, w->frame);
         if (focused && focused->id == w->id)
             xcb_unfocus();
     }
@@ -243,7 +262,9 @@ void on_mouse_motion(const union action act) {
     /*--- get the target window ---*/
 
     struct window * target;
-    target = find_window_by_id(query_reply->child);
+    target = find_window_by_frame(query_reply->child);
+    VARDUMP(query_reply->child);
+
 
     if (!target)
         return;
@@ -293,7 +314,6 @@ void on_mouse_motion(const union action act) {
     }
 
     ufree(pointer_reply);
-
 
     xcb_raise_window(target->id);
 

@@ -27,7 +27,7 @@
 void handle_event(xcb_generic_event_t* e) {
     uint8_t evcode = e->response_type & 0x7F;
 
-    if ((evcode) < 0x7F && events[evcode]) {
+    if (events[evcode]) {
         events[evcode](e);
 
         xcb_flush(conn);

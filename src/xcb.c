@@ -165,7 +165,7 @@ void xcb_move_window(struct window * w, int16_t x, int16_t y){
     // VARDUMP((int)w->geom.x);
 
     xcb_configure_window(
-        conn, w->id,
+        conn, w->frame,
         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
         (uint32_t[]){ x, y }
     );
@@ -203,7 +203,8 @@ void xcb_resize_window(struct window * w, uint16_t width, uint16_t height) {
     w->geom.w = width;
     w->geom.h = height;
 
-    xcb_configure_window(conn, w->id, mask,values);
+    xcb_configure_window(conn, w->frame, mask,values);
+    xcb_configure_window(conn, w->id, mask, values);
 
     update_decoration(w);
     xcb_flush(conn);
