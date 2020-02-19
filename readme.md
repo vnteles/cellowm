@@ -41,7 +41,6 @@ $ make install
 ```
 
 ## Known bugs
-- reload crash the wm
 - resizing isn't natural
 ##### In case of new bugs, please, write an issue. pull requests are welcome too 😁
 
