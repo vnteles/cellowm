@@ -1,12 +1,10 @@
 cellowm
 
 dev/
-obj/
-.vscode/
 test/
-bin/
-autom*
-build/
 
-*.nix
-.envrc
+bin/
+build/
+obj/
+
+.vscode/
