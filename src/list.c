@@ -70,8 +70,6 @@ void free_node(struct window_list ** list, struct window_list * node) {
     if (node->window != NULL)
         ufree(node->window);
 
-    puts("o");
     struct window_list * pnode = pop_node(list, node);
-    puts("ba");
     if (pnode) ufree(pnode);
 }

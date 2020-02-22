@@ -302,11 +302,17 @@ end_map:
 void cello_update_wilist_with(xcb_window_t wid) {
     xcb_change_property(
         conn, XCB_PROP_MODE_APPEND, root_screen->root,
-        ewmh->_NET_CLIENT_LIST, XCB_ATOM_WINDOW, 32, 1, &wid
+        ewmh->_NET_CLIENT_LIST,
+        XCB_ATOM_WINDOW, 32, 1, &wid
     );
     xcb_change_property(
         conn, XCB_PROP_MODE_APPEND, root_screen->root,
         ewmh->_NET_CLIENT_LIST_STACKING,
+        XCB_ATOM_WINDOW, 32, 1, &wid
+    );
+    xcb_change_property(
+        conn, XCB_PROP_MODE_APPEND, root_screen->root,
+        XA_WIN_CLIENT_LIST,
         XCB_ATOM_WINDOW, 32, 1, &wid
     );
 }
@@ -323,6 +329,7 @@ void cello_update_wilist() {
 
     xcb_delete_property(conn, root_screen->root, ewmh->_NET_CLIENT_LIST);
     xcb_delete_property(conn, root_screen->root, ewmh->_NET_CLIENT_LIST_STACKING);
+    xcb_delete_property(conn, root_screen->root, XA_WIN_CLIENT_LIST);
 
     int tlen = xcb_query_tree_children_length(reply);
     xcb_window_t *tch = xcb_query_tree_children(reply);
@@ -399,6 +406,7 @@ void cello_init_atoms() {
 
     XA_WM_DELETE_WINDOW = new_atom("WM_DELETE_WINDOW");
     XA_NET_WM_WINDOW_OPACITY = new_atom("_NET_WM_WINDOW_OPACITY");
+    XA_WIN_CLIENT_LIST = new_atom("_WIN_CLIENT_LIST");
 
 }
 

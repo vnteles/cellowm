@@ -9,10 +9,15 @@
 #include "cursor.h"
 #include "log.h"
 
-#define each_button \
-    (unsigned int i = 0; i < (sizeof(buttons) / sizeof(*buttons)); i++)
+#define EV_FUNCTION(FNAME) \
+    static void ev_##FNAME(xcb_generic_event_t * event)
 
-static void on_button_press(xcb_generic_event_t * event) {
+
+EV_FUNCTION(button_press) {
+
+    #define each_button \
+        (unsigned int i = 0; i < (sizeof(buttons) / sizeof(*buttons)); i++)
+
     // puts("button");
     xcb_button_press_event_t* e = (xcb_button_press_event_t*)event;
 
@@ -35,7 +40,7 @@ static void on_button_press(xcb_generic_event_t * event) {
     }
 }
 
-static void on_enter_notify(xcb_generic_event_t * event) {
+EV_FUNCTION(enter_notify) {
     // puts("enter");
     xcb_enter_notify_event_t* e = (xcb_enter_notify_event_t*)event;
 
@@ -55,12 +60,13 @@ static void on_enter_notify(xcb_generic_event_t * event) {
     xcb_flush(conn);
 }
 
-static void on_configure_notify(xcb_generic_event_t * event) {
+EV_FUNCTION(configure_notify) {
     NLOG("Configure Notify event received");
     xcb_configure_notify_event_t * e = (xcb_configure_notify_event_t *) event;
 
     if (e->window == root_screen->root) {
         puts("changed something");
+
         #define applyifchanged(a, b) a = a != b ? b : a
 
         applyifchanged(root_screen->width_in_pixels, e->width);
@@ -68,11 +74,9 @@ static void on_configure_notify(xcb_generic_event_t * event) {
 
         #undef applyifchanged
     }
-
-    // only when set up xrandr
 }
 
-static void on_configure_request(xcb_generic_event_t * event) {
+EV_FUNCTION(configure_request) {
     puts("config request");
     xcb_configure_request_event_t* e = (xcb_configure_request_event_t*)event;
 
@@ -80,19 +84,25 @@ static void on_configure_request(xcb_generic_event_t * event) {
     uint16_t mask = 0;
     uint8_t i = 0;
 
-    #define CLONE_MASK(MASK, CONFIG) \
-        if (e->value_mask & MASK) {      \
-            mask |= MASK;                \
-            values[i++] = e->CONFIG;     \
+
+    struct window * w = find_window_by_id(e->window);
+
+    #define CLONE_MASK(MASK, CONFIG, WMOD)      \
+        if (e->value_mask & MASK) {             \
+            mask |= MASK;                       \
+            values[i++] = e->CONFIG;            \
+            if (w && WMOD) *(WMOD) = e->CONFIG; \
         }
 
-    CLONE_MASK(XCB_CONFIG_WINDOW_X, x);
-    CLONE_MASK(XCB_CONFIG_WINDOW_Y, y);
-    CLONE_MASK(XCB_CONFIG_WINDOW_WIDTH, width);
-    CLONE_MASK(XCB_CONFIG_WINDOW_HEIGHT, height);
-    CLONE_MASK(XCB_CONFIG_WINDOW_BORDER_WIDTH, border_width);
-    CLONE_MASK(XCB_CONFIG_WINDOW_SIBLING, sibling);
-    CLONE_MASK(XCB_CONFIG_WINDOW_STACK_MODE, stack_mode);
+    char * nullptr = 0;
+
+    CLONE_MASK(XCB_CONFIG_WINDOW_X, x, &w->geom.x);
+    CLONE_MASK(XCB_CONFIG_WINDOW_Y, y, &w->geom.y);
+    CLONE_MASK(XCB_CONFIG_WINDOW_WIDTH, width, &w->geom.w);
+    CLONE_MASK(XCB_CONFIG_WINDOW_HEIGHT, height, &w->geom.h);
+    CLONE_MASK(XCB_CONFIG_WINDOW_BORDER_WIDTH, border_width, nullptr);
+    CLONE_MASK(XCB_CONFIG_WINDOW_SIBLING, sibling, nullptr);
+    CLONE_MASK(XCB_CONFIG_WINDOW_STACK_MODE, stack_mode, nullptr);
 
     #undef CLONE_MASK
 
@@ -103,7 +113,7 @@ static void on_configure_request(xcb_generic_event_t * event) {
     xcb_flush(conn);
 }
 
-static void on_destroy_notify(xcb_generic_event_t * event) {
+EV_FUNCTION(destroy_notify) {
     xcb_destroy_notify_event_t* e = (xcb_destroy_notify_event_t*)event;
     // VARDUMP(e->window);
 
@@ -113,7 +123,7 @@ static void on_destroy_notify(xcb_generic_event_t * event) {
     }
 }
 
-static void on_map_request(xcb_generic_event_t * event) {
+EV_FUNCTION(map_request) {
     xcb_map_request_event_t* e = (xcb_map_request_event_t*)event;
     struct window* w;
     // skip windows in another desktop
@@ -131,7 +141,7 @@ static void on_map_request(xcb_generic_event_t * event) {
     xcb_flush(conn);
 }
 
-static void on_property_notify(xcb_generic_event_t * event) {
+EV_FUNCTION(property_notify) {
     xcb_property_notify_event_t* e = (xcb_property_notify_event_t*)event;
     // VARDUMP(e->atom);
     // VARDUMP(ewmh->_NET_WM_STRUT_PARTIAL);
@@ -147,7 +157,7 @@ static void on_property_notify(xcb_generic_event_t * event) {
     }
 }
 
-static void on_unmap_notify(xcb_generic_event_t * event) {
+EV_FUNCTION(unmap_notify) {
     xcb_unmap_notify_event_t * e = (xcb_unmap_notify_event_t*)event;
 
     struct window * w;
@@ -159,38 +169,83 @@ static void on_unmap_notify(xcb_generic_event_t * event) {
     }
 }
 
-static void on_client_message(xcb_generic_event_t * event) {
+EV_FUNCTION(client_message) {
     xcb_client_message_event_t * e = (xcb_client_message_event_t *) event;
-    // change the desktop message
-    if (e->type == ewmh->_NET_CURRENT_DESKTOP || e->type == ewmh->_NET_WM_ACTION_CHANGE_DESKTOP) {
+
+    // change desktop
+    if (e->type == ewmh->_NET_CURRENT_DESKTOP || e->type == ewmh->_NET_WM_DESKTOP) {
         cello_goto_desktop(e->data.data32[0]);
     }
+    
+    // change active window
     else if (e->type == ewmh->_NET_ACTIVE_WINDOW) {
         struct window * w = find_window_by_id(e->window);
         if (!w) return;
 
         xcb_focus_window(w);
     }
+
     else if (e->type == ewmh->_NET_WM_DESKTOP) {
         struct window * w = find_window_by_id(e->window);
         if (!w) return;
 
         xcb_change_window_ds(w, e->data.data32[0]);
     }
+
+    else if (e->type == ewmh->_NET_MOVERESIZE_WINDOW) {
+
+        struct window * w = find_window_by_id(e->window);
+        if (!w) return;
+
+        w->geom.x = e->data.data32[1];
+        w->geom.y = e->data.data32[2];
+        w->geom.w = e->data.data32[3];
+        w->geom.h = e->data.data32[4];
+    }
+
+    else if (e->type == ewmh->_NET_WM_STATE) {
+        struct window * w = find_window_by_id(e->window);
+        if (w == NULL) return;
+
+        // Maximize window
+        if (e->data.data32[1] == ewmh->_NET_WM_STATE_FULLSCREEN || e->data.data32[2] == ewmh->_NET_WM_STATE_FULLSCREEN) {
+            switch (e->data.data32[0]) {
+                case XCB_EWMH_WM_STATE_ADD:
+                    window_maximize(w, CELLO_STATE_MAXIMIZE);
+                    break;
+                case XCB_EWMH_WM_STATE_REMOVE:
+                    cello_unmaximize_window(w);
+                    break;
+                case XCB_EWMH_WM_STATE_TOGGLE:
+                    // if maximized
+                    if (w->state_mask & CELLO_STATE_MAXIMIZE) {
+                        // turn normal
+                        cello_unmaximize_window(w);
+                    } else {
+                        // turn maximized
+                        window_maximize(w, CELLO_STATE_MAXIMIZE);
+                    }
+                default:
+                    break;
+            }
+        }
+    }
+
+    puts("other client message received");
 }
 
 void (*events[0x7f])(xcb_generic_event_t *);
 
 void init_events() {
-    events[XCB_BUTTON_PRESS]           =      on_button_press;
-    events[XCB_ENTER_NOTIFY]           =      on_enter_notify;
-    events[XCB_CONFIGURE_NOTIFY]       =      on_configure_notify;
-    events[XCB_CONFIGURE_REQUEST]      =      on_configure_request;
-    events[XCB_DESTROY_NOTIFY]         =      on_destroy_notify;
-    events[XCB_MAP_REQUEST]            =      on_map_request;
-    events[XCB_PROPERTY_NOTIFY]        =      on_property_notify;
-    events[XCB_UNMAP_NOTIFY]           =      on_unmap_notify;
-    events[XCB_CLIENT_MESSAGE]         =      on_client_message;
+    events[XCB_BUTTON_PRESS]           =      ev_button_press;
+    events[XCB_ENTER_NOTIFY]           =      ev_enter_notify;
+    events[XCB_CONFIGURE_NOTIFY]       =      ev_configure_notify;
+    events[XCB_CONFIGURE_REQUEST]      =      ev_configure_request;
+    events[XCB_DESTROY_NOTIFY]         =      ev_destroy_notify;
+    events[XCB_MAP_REQUEST]            =      ev_map_request;
+    events[XCB_PROPERTY_NOTIFY]        =      ev_property_notify;
+    events[XCB_UNMAP_NOTIFY]           =      ev_unmap_notify;
+    events[XCB_CLIENT_MESSAGE]         =      ev_client_message;
 }
 
 
@@ -307,7 +362,7 @@ void on_mouse_motion(const union action act) {
 
 
         switch (event->response_type & 0x7F) {
-            case XCB_DESTROY_NOTIFY: case XCB_MAP_REQUEST: case XCB_PROPERTY_NOTIFY: case XCB_CONFIGURE_REQUEST:
+            case XCB_DESTROY_NOTIFY: case XCB_MAP_REQUEST: case XCB_PROPERTY_NOTIFY:
                 handle_event(event);
                 break;
             case XCB_FOCUS_OUT: case XCB_KEY_PRESS: case XCB_KEY_RELEASE: case XCB_BUTTON_RELEASE: case XCB_BUTTON_PRESS:
