@@ -13,7 +13,7 @@
  ** @brief handle `desktop.current` message
  ** @param data the unparsed string with the desktop number
  **/
-void action_desktop_current(char ** data) {
+void action_desktop_current(char * data[static 1]) {
     if (!data || !data[0]) return;
 
     int n = strtol(data[0], NULL, 10);
@@ -27,7 +27,7 @@ void action_desktop_current(char ** data) {
     `data[0]` must have the unparsed string with the desktop number \
     `data[1]` must have the unparsed string with the window id
  **/
-void action_window_desktop(char ** data) {
+void action_window_desktop(char * data[static restrict 2]) {
     if (!data || !data[0]) return;
 
     struct window * w;
@@ -38,14 +38,14 @@ void action_window_desktop(char ** data) {
     if (data[1] == NULL || comp_str(data[1], "focused")) {
         w = xcb_get_focused_window();
     } else {
-        xcb_drawable_t wid = strtol(data[1], NULL, 16);
+        xcb_window_t wid = strtol(data[1], NULL, 16);
         w = find_window_by_id(wid);
     }
 
     xcb_change_window_ds(w, ds);
 }
 
-void action_window_move(char ** data) {
+void action_window_move(char * data[static 1]) {
     if (!data || !data[0]) return;
 
     struct window * w;
@@ -53,7 +53,7 @@ void action_window_move(char ** data) {
     if (!data[1] || comp_str(data[1], "focused")) {
         w = xcb_get_focused_window();
     } else {
-        xcb_drawable_t wid = strtol(data[1], NULL, 16);
+        xcb_window_t wid = strtol(data[1], NULL, 16);
         w = find_window_by_id(wid);
     }
 
@@ -79,8 +79,8 @@ void action_window_move(char ** data) {
     }
 }
 
-void action_window_close(char ** data) {
-    xcb_drawable_t wid = 0;
+void action_window_close(char * data[static restrict 1]) {
+    xcb_window_t wid = 0;
 
     if (!data[0] || comp_str(data[0], "focused")) {
         struct window  * w = xcb_get_focused_window();
@@ -99,6 +99,20 @@ void action_window_close(char ** data) {
     xcb_close_window(wid, false);
 }
 
+void action_window_maximize(char * data[static 1]) {
+    struct window * w;
+
+    if (!data[0] || comp_str(data[0], "focused")) {
+        w = xcb_get_focused_window();
+    } else {
+        xcb_window_t wid = strtol(data[1], NULL, 16);
+        if (find_window_by_id(wid) == NULL) {
+            return;
+        }
+    }
+
+    window_maximize(w, CELLO_STATE_MAXIMIZE);
+}
 /*--- state ---*/
 
 enum ops {
@@ -137,6 +151,7 @@ struct msg_state state[] = {
         { head_act("desktop") &action_window_desktop, .u.s.params = 2 },
         { head_act("move")    &action_window_move,    .u.s.params = 2 },
         { head_act("close")   &action_window_close,   .u.s.params = 1 },
+        { head_act("maximize") &action_window_maximize, .u.s.params = 1 },
     }}
     // ...
 };
@@ -170,11 +185,9 @@ static struct msg_state * parse_option(char * opt) {
 
         if (!aux_state)
             return NULL;
-
         for ( i = 0;  aux_state && aux_state[i].name; i++) {
 
             if (strncmp(opt, aux_state[i].name, end)) continue;
-
             switch (aux_state[i].kind) {
                 case STT_STT:
                     if (!aux_state[i].u.stt)
@@ -247,7 +260,6 @@ void parse_opts(int len, char ** msg) {
             puts("modifier");
         } else {
             if ((i == len)) {
-                // puts("a");
                 return;
             }
 

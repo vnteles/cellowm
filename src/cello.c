@@ -302,7 +302,7 @@ end_map:
 void cello_update_wilist_with(xcb_window_t wid) {
     xcb_change_property(
         conn, XCB_PROP_MODE_APPEND, root_screen->root,
-        ewmh->_NET_CLIENT_LIST,
+        ewmh->_NET_CLIENT_LIST, 
         XCB_ATOM_WINDOW, 32, 1, &wid
     );
     xcb_change_property(

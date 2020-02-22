@@ -33,6 +33,7 @@ extern bool run;
 
 xcb_atom_t XA_WM_DELETE_WINDOW;
 xcb_atom_t XA_NET_WM_WINDOW_OPACITY;
+xcb_atom_t XA_WIN_CLIENT_LIST;
 
 xcb_screen_t * get_screen(xcb_connection_t con, int scr);
 
