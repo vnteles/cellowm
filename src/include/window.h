@@ -52,6 +52,8 @@ struct window * nextprev_window(bool prev);
  **/
 void update_decoration(struct window * w);
 
+void window_maximize(struct window *w, uint16_t stt);
+
 
 
 void frame_window(struct window w[static 1]);
