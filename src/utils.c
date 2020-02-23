@@ -9,7 +9,9 @@
 #define mem_error() \
     { ELOG("{!} Unexpected Memory error"); exit(EFAULT); }
 
-void * umalloc(uint16_t size) {
+
+
+void * umalloc(size_t size) {
     void * ptr;
     if ( (ptr = malloc(size)) )  return ptr;
     else mem_error();
@@ -18,7 +20,7 @@ void * umalloc(uint16_t size) {
     return NULL;
 }
 
-void * ucalloc(uint16_t qnt, uint16_t size) {
+void * ucalloc(uint32_t qnt, size_t size) {
     void * ptr;
     if ( (ptr = calloc(qnt, size)) )  return ptr;
     else mem_error();

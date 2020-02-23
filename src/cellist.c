@@ -1,25 +1,20 @@
-#include <stdlib.h>
-
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-
 #include <poll.h>
 
-#include <string.h>
-
 #include "cello.h"
-#include "utils.h"
 #include "log.h"
-#include "list.h"
 
 int main(int argc, char * argv[]) {
     int sockfd;
     struct sockaddr_un addr;
-    char sendbuff[BUFSIZ], recvbuff[BUFSIZ];    
+    char sendbuff[BUFSIZ], recvbuff[BUFSIZ];
 
-    int send_len = 0;//, recev_len;
+    int send_len = 0;//, recv_len;
 
     // verify the number of arguments
     if (argc < 2) CRITICAL("No Arguments passed.");
