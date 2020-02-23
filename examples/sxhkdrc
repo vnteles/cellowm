@@ -4,19 +4,19 @@
 
 # quit/restart cello
 super + shift + {q,r}
-	celloc wm {logout,reload}
+	cellist wm {logout,reload}
 
 # close or kill
 super + {q,k}
-	celloc window.{close,kill}
+	cellist window.{close,kill}
 
 # focus or send to the given desktop
 super + {_,shift + }{1-9,0}
-	celloc {desktop.current,window.desktop} '{0-9,10}'
+	cellist {desktop.current,window.desktop} '{0-9,10}'
 
 # center the focused window
 super + c
-	celloc window.move center
+	cellist window.move center
 
   #---------------#
  #--- hotkeys ---#

@@ -218,7 +218,7 @@ EV_FUNCTION(client_message) {
                     break;
                 case XCB_EWMH_WM_STATE_TOGGLE:
                     // if maximized
-                    if (w->state_mask & CELLO_STATE_MAXIMIZE) {
+                    if (!(w->state_mask & CELLO_STATE_NORMAL)) {
                         // turn normal
                         cello_unmaximize_window(w);
                     } else {

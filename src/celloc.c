@@ -17,7 +17,7 @@
 int main(int argc, char * argv[]) {
     int sockfd;
     struct sockaddr_un addr;
-    char sendbuff[BUFSIZ], recvbuff[BUFSIZ];
+    char sendbuff[BUFSIZ], recvbuff[BUFSIZ];    
 
     int send_len = 0;//, recev_len;
 
