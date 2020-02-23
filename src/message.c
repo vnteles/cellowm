@@ -6,9 +6,6 @@
 #include "log.h"
 #include "xcb.h"
 
-#define comp_str(s1, s2) ( strcmp(s1, s2) == 0 )
-
-
 /**
  ** @brief handle `desktop.current` message
  ** @param data the unparsed string with the desktop number
@@ -255,7 +252,9 @@ void parse_opts(int len, char ** msg) {
     //--- get the action ---
     struct msg_state * stt = NULL;
     char * stt_data[4];
+
     for (int i = 0; i < len; i++) {
+
         if (msg[i][0] == '-') {
             puts("modifier");
         } else {

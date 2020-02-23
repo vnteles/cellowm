@@ -29,16 +29,12 @@
 #define __RemoveMask__(maskv, m) maskv &= ~m
 /*remove `m1` and add `m2` to `maskv`*/
 #define __SwitchMask__(maskv, m1, m2) __RemoveMask__(maskv, m1); __AddMask__(maskv, m2)
-/*Check if mask `m` exists in maskv*/
-#define __HasMask__(maskv, m) maskv & m
 
+/* compare two strings. Return true if the strings match */
+#define comp_str(s1, s2) (strcmp(s1, s2) == 0)
 
-/* Generally we don't need to allocate too much space,
- * thus we are using uint16 instead of size_t or uint32
- */
-
-void * umalloc(uint16_t size);
-void * ucalloc(uint16_t qnt, uint16_t size);
+void * umalloc(size_t size);
+void * ucalloc(uint32_t qnt, size_t size);
 
 #define ufree(ptr) { free(ptr); ptr = NULL; }
 
