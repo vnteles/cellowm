@@ -13,7 +13,7 @@ RM=rm -f
 
 CC=gcc -std=c11
 CFLAGS+= -W -Wextra -Wall -I$(INCLUDE_PATH)
-LDADD+=-lxcb -lxcb-cursor -lxcb-ewmh -lxcb-icccm
+LDADD+=-lxcb -lxcb-cursor -lxcb-ewmh -lxcb-icccm -lm
 
 all: obj_dir bin_dir $(PROJ) $(CONN)
 

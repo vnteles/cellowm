@@ -136,15 +136,64 @@ void center_window_y(struct window *w) {
 #undef X_CENTER
 #undef Y_CENTER
 
+#include<math.h>
+
+#define R 0
+#define G 1
+#define B 2
+
+uint32_t rgb_to_hex(uint8_t rgb[static 3]) {
+    return (uint32_t)rgb[0] << 16 | (uint32_t)rgb[1] << 8 | (uint32_t)rgb[2];
+}
+
+uint8_t * ColorCopy(uint8_t * c1, uint8_t * c2) {
+    if (!c1 || !c2) return NULL;
+
+    for (uint8_t j = 0; j < 3; j++) {
+        c1[j] = c2[j];
+    }
+
+    return c1;
+}
+
+#define interpolate(COL) color[COL] = round((double)(color[COL] + factor * (color2[COL] - color1[COL])));
+
+uint8_t * interpolateColor(uint8_t color1[static 3], uint8_t color2[static 3], double factor) {
+	static uint8_t color[3];
+    ColorCopy(color, color1);
+
+	interpolate(R);
+	interpolate(G);
+	interpolate(B);
+
+	return color;
+}
+
+#undef interpolate
+
+uint8_t ** doGradient(uint8_t color1[static 3], uint8_t color2[static 3], const uint8_t steps) {
+	double factor = ((double)1 / (steps-1));
+	static uint8_t ** interpolatedColors;
+    interpolatedColors = malloc(steps * sizeof interpolatedColors);
+
+	// interpolatedColors.push_back(color1);
+	for (uint8_t i = 0; i < steps; i++) {
+        interpolatedColors[i] = malloc(3 * sizeof *interpolatedColors);
+		ColorCopy(interpolatedColors[i], interpolateColor(color1, color2, factor*i));
+	}
+
+	return interpolatedColors;
+}
+
 void update_decoration(struct window *w) {
     /* ignore if no border modifier is specified */
-    if (!(w->state_mask & CELLO_STATE_BORDER)) {
-        xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){0});
-        return;
-    };
+    // if (!(w->state_mask & CELLO_STATE_BORDER)) {
+    //     xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){0});
+    //     return;
+    // };
 
-    uint16_t obw = conf.outer_border;
-    uint16_t ibw = conf.inner_border;
+    uint16_t obw = 0;
+    uint16_t ibw = 1;
     uint16_t bw = ibw + obw;
 
     xcb_configure_window(conn, w->id, XCB_CONFIG_WINDOW_BORDER_WIDTH, (uint32_t[]){bw});
@@ -159,34 +208,73 @@ void update_decoration(struct window *w) {
     xcb_gcontext_t gc = xcb_generate_id(conn);
     xcb_create_gc(conn, gc, pmap, 0, NULL);
 
-    /*rectangle definitions*/
-#define __InnerBorder__                                                 \
-    (xcb_rectangle_t[]) {                                               \
-        {w->geom.w, 0, ibw, w->geom.h + ibw},                           \
-        {w->geom.w + bw + obw, 0, ibw, w->geom.h + ibw},                \
-        {0, w->geom.h + bw + obw, w->geom.w + ibw, ibw},                \
-        {0, w->geom.h, w->geom.w + ibw, ibw},                           \
-        { w->geom.w + bw + obw, w->geom.h + bw + obw, bw, bw }          \
-    }
-
-#define __OuterBorder__                                                 \
+/* #define __OuterBorder__                                                 \
     (xcb_rectangle_t[]) {                                               \
         {w->geom.w + ibw, 0, obw, w->geom.h + bw * 2},                  \
         {w->geom.w + bw, 0, obw, w->geom.h + bw * 2},                   \
         {0, w->geom.h + ibw, w->geom.w + bw * 2, obw},                  \
         {0, w->geom.h + bw, w->geom.w + bw * 2, obw},                   \
+    } */
+
+
+//     /*draw the outer border*/
+//     if (obw) {
+//         xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){conf.outer_border_color | 0xff000000});
+//         xcb_poly_fill_rectangle(conn, pmap, gc, 4, __OuterBorder__);
+//     }
+
+// #undef __OuterBorder__
+
+    const uint8_t steps = 7;
+    uint8_t from[3] = {255, 95, 109};
+    uint8_t to[3] = {255, 195, 113};
+
+
+    xcb_rectangle_t inner_border_TB[] = {
+        {0, w->geom.h + bw + obw, w->geom.w + ibw, ibw}, // top
+        {w->geom.w + bw + obw, w->geom.h + bw + obw, bw, bw}, // top-left
+
+        {0, w->geom.h, w->geom.w + ibw, ibw}, // bottom
+        {w->geom.w + bw + obw, w->geom.h, bw, bw} //bottom-left
+
+        // {w->geom.w, 0, ibw, w->geom.h + ibw}, //right
+        // {w->geom.w + bw + obw, 0, ibw, w->geom.h + ibw}, // left
+    };
+
+    // apply colors for the laterals
+
+    uint16_t height = ceil((w->geom.h + ibw) / (steps - 2));
+
+    uint8_t ** colors;
+
+    colors = doGradient(from, to, steps);
+
+    xcb_rectangle_t inner_border_LR[2];
+
+    for (uint8_t i = 0; i < (steps-2); i++) {
+        inner_border_LR[0].x = w->geom.w + bw + obw;
+        inner_border_LR[0].y = height*i;
+        inner_border_LR[0].width = ibw;
+        inner_border_LR[0].height = height;
+
+        inner_border_LR[1].x = w->geom.w;
+        inner_border_LR[1].y = height*i;
+        inner_border_LR[1].width = ibw;
+        inner_border_LR[1].height = height;
+
+        xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){rgb_to_hex(colors[i+1]) | 0xff000000});
+        xcb_poly_fill_rectangle(conn, pmap, gc, 2, inner_border_LR);
     }
 
-    /*draw the outer border*/
-    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){conf.outer_border_color | 0xff000000});
-    xcb_poly_fill_rectangle(conn, pmap, gc, 4, __OuterBorder__);
 
-    /*draw the inner border*/
-    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){conf.inner_border_color | 0xff000000});
-    xcb_poly_fill_rectangle(conn, pmap, gc, 5, __InnerBorder__);
+    // draw top border
+    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){rgb_to_hex(from) | 0xff000000});
+    xcb_poly_fill_rectangle(conn, pmap, gc, 2, &inner_border_TB[0]);
 
-#undef __OuterBorder__
-#undef __InnerBorder__
+    //draw bottom border
+    xcb_change_gc(conn, gc, XCB_GC_FOREGROUND, (uint32_t[]){rgb_to_hex(to) | 0xff000000});
+    xcb_poly_fill_rectangle(conn, pmap, gc, 2, &inner_border_TB[2]);
+
 
     xcb_change_window_attributes(conn, w->id, XCB_CW_BORDER_PIXMAP,
                                (uint32_t[]){pmap});

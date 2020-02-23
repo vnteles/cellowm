@@ -387,13 +387,13 @@ void on_mouse_motion(const union action act) {
                         w_geometry.y + e->event_y - py
                     );
                 }
-
+                update_decoration(target);
                 xcb_flush(conn);
             }
             default:
                 break;
         }
-
+        
         ufree(event);
         xcb_flush(conn);
     }
