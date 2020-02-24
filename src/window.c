@@ -226,8 +226,8 @@ void update_decoration(struct window *w) {
 // #undef __OuterBorder__
 
     const uint8_t steps = 7;
-    uint8_t from[3] = {255, 95, 109};
-    uint8_t to[3] = {255, 195, 113};
+    uint8_t from[3] = {60, 140, 231};
+    uint8_t to[3] = {0, 234, 255};
 
 
     xcb_rectangle_t inner_border_TB[] = {

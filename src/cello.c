@@ -175,11 +175,7 @@ void cello_add_window_to_desktop(struct window *w, uint32_t ds) {
     node->window = w;
 
     // change window desktop in ewmh
-    xcb_change_property(
-        conn, XCB_PROP_MODE_REPLACE,
-        w->id, ewmh->_NET_WM_DESKTOP,
-        XCB_ATOM_CARDINAL, 32, 1, &w->d
-    );
+    xcb_ewmh_set_wm_desktop(ewmh, w->id, w->d);
 
     /*verify if window can stay mapped*/
     {
@@ -188,7 +184,7 @@ void cello_add_window_to_desktop(struct window *w, uint32_t ds) {
         if (dslist[ds] && dslist[ds]->window)
             fw = (struct window *)dslist[ds]->window;
 
-        if (w->d != ds || (fw && !(fw->state_mask & CELLO_STATE_NORMAL))) {
+        if (cello_get_current_desktop() != ds || (fw && !(fw->state_mask & CELLO_STATE_NORMAL))) {
             xcb_unmap_window(conn, w->id);
             return;
         }
@@ -411,24 +407,9 @@ void cello_init_atoms() {
 }
 
 void cello_reload() {
-
-/* dev reload can reload the execution, so we can test changes on each compile
- */
-#ifndef DEVRELOAD
-    /* save the current ds to return to the same desktop when the wm reload */
-    current_ds = cello_get_current_desktop();
-
     cello_clean();
 
-    cello_setup_all();
-    cello_deploy();
-#else
-
-    cello_clean();
-
-    extern char *execpath;
-    execvp(execpath, (char *[]){execpath, NULL});
-#endif
+    execvp(path, (char * []){path, NULL});
 }
 
 void cello_setup_all() {

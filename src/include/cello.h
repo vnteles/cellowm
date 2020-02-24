@@ -12,10 +12,6 @@
 
 #define WMSOCKPATH "/tmp/cellowm-%s-%d.%d.sock"
 
-
-#define CONFIG_PATH "/.config/cellowm/config.json"
-#define CONFIG_PATH_LEN 28
-
 #define CELLO_STATE_NORMAL   ( 1 << 0 )
 #define CELLO_STATE_MAXIMIZE ( 1 << 1 )
 #define CELLO_STATE_FOCUS    ( 1 << 2 )
@@ -28,6 +24,8 @@ extern xcb_screen_t * root_screen;
 extern struct window_list * dslist[MAX_DESKTOPS];
 
 extern struct config conf;
+
+extern char * path;
 
 extern bool run;
 
