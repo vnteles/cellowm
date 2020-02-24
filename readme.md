@@ -16,7 +16,7 @@ some functionalities I want to implement to cello (not necessary on this order)
 - [x] Fullscreen windows
 - [x] Basic bar/dock support - tested polybar, tint2, latte, plank(doesn't display softwares launched) and yabar(crash sometimes)
 - [x] Temporary message parser
-- [ ] Focus mode
+- [x] Focus mode
 - [ ] Multi-monitor support
 - [ ] Reserve space for bars/docks
 - [ ] New message parser
