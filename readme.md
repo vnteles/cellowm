@@ -1,5 +1,5 @@
 
-# Cello - A floating window manager smooth as a cello
+# A floating window manager smooth as a cello
 <p align="center">
   <img width="460" height="300" src="./assets/cello.svg">
 </p>
